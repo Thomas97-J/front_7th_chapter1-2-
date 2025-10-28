@@ -624,19 +624,81 @@ if [ "$MODE" == "--auto" ]; then
         
         if [ $TEST_STATUS -ne 0 ]; then
             log_warning "테스트 실패 (예상된 동작 - RED 단계)"
+            echo ""
+            echo "실패한 테스트:"
+            pnpm test "$TEST_FILE" --reporter=verbose 2>&1 | grep -A 3 "FAIL" || true
+        else
+            log_warning "⚠️  주의: RED 단계에서 테스트가 통과했습니다. 구현이 이미 존재하는지 확인하세요."
         fi
         echo ""
         
-        # ✅ RED 단계 자동 커밋
-        auto_commit "RED" "$TEST_FILE" "$FEATURE_NAME"
+        # ✅ RED 단계 자동 커밋 (파일이 실제로 추가되었는지 확인)
+        if [ -f "$TEST_FILE" ]; then
+            auto_commit "RED" "$TEST_FILE" "$FEATURE_NAME"
+        else
+            log_error "테스트 파일이 생성되지 않아 커밋을 건너뜁니다."
+        fi
     else
-        log_warning "파일 생성 실패. 수동으로 코드를 복사하세요: $RESULT_FILE"
+        log_warning "파일 자동 생성 실패. 수동 작업이 필요합니다."
         echo ""
-        echo "다음 명령으로 수동 추출 가능:"
-        echo "  awk '/\`\`\`typescript/,/\`\`\`/' $RESULT_FILE | sed '/\`\`\`/d' > src/__tests__/unit/${FEATURE_NAME}.spec.ts"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "📋 수동 코드 추출 방법:"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "1️⃣  다음 명령으로 코드 추출:"
+        echo -e "   ${GREEN}awk '/\`\`\`typescript/,/\`\`\`/' $RESULT_FILE | sed '/\`\`\`/d' > src/__tests__/unit/${FEATURE_NAME}.spec.ts${NC}"
+        echo ""
+        echo "2️⃣  또는 결과 파일을 직접 확인:"
+        echo -e "   ${GREEN}cat $RESULT_FILE${NC}"
+        echo ""
+        echo "3️⃣  수동으로 파일 생성:"
+        echo -e "   ${GREEN}vi src/__tests__/unit/${FEATURE_NAME}.spec.ts${NC}"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        
+        # 수동 작업 대기
+        read -p "테스트 파일 생성 완료 후 Enter를 누르세요... " 
+        
+        # 수동 생성된 파일 확인
+        TEST_FILE="src/__tests__/unit/${FEATURE_NAME}.spec.ts"
+        
+        if [ -f "$TEST_FILE" ]; then
+            log_success "테스트 파일 확인됨: $TEST_FILE"
+            
+            echo ""
+            log "테스트 실행 중..."
+            
+            # 테스트 실행
+            set +e
+            pnpm test "$TEST_FILE"
+            TEST_STATUS=$?
+            set -e
+            
+            if [ $TEST_STATUS -ne 0 ]; then
+                log_warning "테스트 실패 (예상된 동작 - RED 단계)"
+            fi
+            echo ""
+            
+            # 수동 생성 파일도 커밋
+            if [ "$AUTO_COMMIT" == "true" ]; then
+                log "수동 생성된 파일을 커밋합니다..."
+                auto_commit "RED" "$TEST_FILE" "$FEATURE_NAME"
+            else
+                log_warning "AUTO_COMMIT이 비활성화되어 있습니다."
+                read -p "커밋을 생성하시겠습니까? (y/n): " do_commit
+                if [ "$do_commit" == "y" ]; then
+                    auto_commit "RED" "$TEST_FILE" "$FEATURE_NAME"
+                fi
+            fi
+        else
+            log_error "테스트 파일을 찾을 수 없습니다: $TEST_FILE"
+            log_warning "다음 단계로 진행하기 전에 파일을 생성해야 합니다."
+        fi
     fi
     
-    read -p "테스트 확인 후 Enter를 누르세요..." 
+    echo ""
+    read -p "다음 단계로 진행하려면 Enter를 누르세요... " 
 elif [ "$MODE" == "--interactive" ]; then
     read -p "Claude CLI로 실행하시겠습니까? (y/n): " confirm
     if [ "$confirm" == "y" ]; then
@@ -654,13 +716,27 @@ elif [ "$MODE" == "--interactive" ]; then
                 pnpm test "$TEST_FILE"
                 set -e
                 
-                if [ "$AUTO_COMMIT" == "true" ]; then
+                if [ "$AUTO_COMMIT" == "true" ] && [ -f "$TEST_FILE" ]; then
                     auto_commit "RED" "$TEST_FILE" "$FEATURE_NAME"
+                fi
+            else
+                # 수동 생성 옵션
+                log_warning "자동 생성 실패"
+                read -p "수동으로 파일을 생성하시겠습니까? (y/n): " manual_create
+                if [ "$manual_create" == "y" ]; then
+                    echo "다음 명령으로 추출:"
+                    echo "  awk '/\`\`\`typescript/,/\`\`\`/' $RESULT_FILE | sed '/\`\`\`/d' > src/__tests__/unit/${FEATURE_NAME}.spec.ts"
+                    read -p "생성 완료 후 Enter를 누르세요... "
+                    
+                    TEST_FILE="src/__tests__/unit/${FEATURE_NAME}.spec.ts"
+                    if [ -f "$TEST_FILE" ] && [ "$AUTO_COMMIT" == "true" ]; then
+                        auto_commit "RED" "$TEST_FILE" "$FEATURE_NAME"
+                    fi
                 fi
             fi
         fi
         
-        read -p "테스트 파일 추가 후 Enter를 누르세요..." 
+        read -p "테스트 파일 추가 후 Enter를 누르세요... " 
     fi
 else
     log "프롬프트 생성: $PROMPT_FILE"
@@ -729,29 +805,127 @@ if [ "$MODE" == "--auto" ]; then
         
         echo ""
         log "테스트 실행 중..."
+        echo ""
         
         set +e
-        pnpm test "$TEST_FILE"
+        pnpm test "$TEST_FILE" --reporter=verbose
         TEST_STATUS=$?
         set -e
         
+        echo ""
         # ✅ GREEN 단계 자동 커밋 (테스트 통과 확인 후)
         if [ $TEST_STATUS -eq 0 ]; then
-            log_success "모든 테스트 통과!"
-            auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
+            log_success "✅ 모든 테스트 통과!"
+            
+            if [ -f "$IMPL_FILE" ]; then
+                auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
+            else
+                log_error "구현 파일이 존재하지 않아 커밋을 건너뜁니다."
+            fi
         else
-            log_error "테스트 실패. 커밋을 건너뜁니다."
+            log_error "❌ 테스트 실패. 커밋을 건너뜁니다."
             echo ""
             log "테스트 실패 원인을 확인하고 코드를 수정하세요:"
             echo "  - 파일: $IMPL_FILE"
             echo "  - 테스트: $TEST_FILE"
+            echo ""
+            read -p "수동으로 코드를 수정한 후 Enter를 누르면 다시 테스트합니다... " 
+            
+            # 수정 후 재테스트
+            set +e
+            pnpm test "$TEST_FILE"
+            RETEST_STATUS=$?
+            set -e
+            
+            if [ $RETEST_STATUS -eq 0 ]; then
+                log_success "✅ 테스트 통과! 커밋합니다."
+                auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
+            else
+                log_error "여전히 테스트가 실패합니다. 다음 단계로 넘어가기 전에 수정이 필요합니다."
+            fi
         fi
         echo ""
     else
-        log_warning "파일 생성 실패. 수동으로 코드를 복사하세요: $RESULT_FILE"
+        log_warning "파일 자동 생성 실패. 수동 작업이 필요합니다."
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "📋 수동 코드 추출 방법:"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "1️⃣  다음 명령으로 코드 추출:"
+        echo -e "   ${GREEN}awk '/\`\`\`typescript/,/\`\`\`/' $RESULT_FILE | sed '/\`\`\`/d' > src/utils/${FEATURE_NAME}.ts${NC}"
+        echo ""
+        echo "2️⃣  또는 결과 파일을 직접 확인:"
+        echo -e "   ${GREEN}cat $RESULT_FILE${NC}"
+        echo ""
+        echo "3️⃣  수동으로 파일 생성:"
+        echo -e "   ${GREEN}vi src/utils/${FEATURE_NAME}.ts${NC}"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        
+        # 수동 작업 대기
+        read -p "구현 파일 생성 완료 후 Enter를 누르세요... " 
+        
+        # 수동 생성된 파일 확인
+        IMPL_FILE="src/utils/${FEATURE_NAME}.ts"
+        
+        if [ -f "$IMPL_FILE" ]; then
+            log_success "구현 파일 확인됨: $IMPL_FILE"
+            
+            echo ""
+            log "테스트 실행 중..."
+            
+            # 테스트 실행
+            set +e
+            pnpm test "$TEST_FILE"
+            TEST_STATUS=$?
+            set -e
+            
+            if [ $TEST_STATUS -eq 0 ]; then
+                log_success "모든 테스트 통과!"
+                
+                # 수동 생성 파일도 커밋
+                if [ "$AUTO_COMMIT" == "true" ]; then
+                    log "수동 생성된 파일을 커밋합니다..."
+                    auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
+                else
+                    log_warning "AUTO_COMMIT이 비활성화되어 있습니다."
+                    read -p "커밋을 생성하시겠습니까? (y/n): " do_commit
+                    if [ "$do_commit" == "y" ]; then
+                        auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
+                    fi
+                fi
+            else
+                log_error "테스트 실패"
+                echo ""
+                log "테스트 실패 원인을 확인하고 코드를 수정하세요:"
+                echo "  - 파일: $IMPL_FILE"
+                echo "  - 테스트: $TEST_FILE"
+                echo ""
+                read -p "수정 후 다시 테스트하려면 Enter를 누르세요... "
+                
+                # 재테스트
+                set +e
+                pnpm test "$TEST_FILE"
+                RETEST_STATUS=$?
+                set -e
+                
+                if [ $RETEST_STATUS -eq 0 ]; then
+                    log_success "테스트 통과!"
+                    if [ "$AUTO_COMMIT" == "true" ]; then
+                        auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
+                    fi
+                fi
+            fi
+        else
+            log_error "구현 파일을 찾을 수 없습니다: $IMPL_FILE"
+            log_warning "다음 단계로 진행하기 전에 파일을 생성해야 합니다."
+        fi
     fi
     
-    read -p "구현 확인 후 Enter를 누르세요..." 
+    echo ""
+    read -p "다음 단계로 진행하려면 Enter를 누르세요... " 
 elif [ "$MODE" == "--interactive" ]; then
     read -p "Claude CLI로 실행하시겠습니까? (y/n): " confirm
     if [ "$confirm" == "y" ]; then
@@ -773,10 +947,31 @@ elif [ "$MODE" == "--interactive" ]; then
                 if [ $TEST_STATUS -eq 0 ] && [ "$AUTO_COMMIT" == "true" ]; then
                     auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
                 fi
+            else
+                # 수동 생성 옵션
+                log_warning "자동 생성 실패"
+                read -p "수동으로 파일을 생성하시겠습니까? (y/n): " manual_create
+                if [ "$manual_create" == "y" ]; then
+                    echo "다음 명령으로 추출:"
+                    echo "  awk '/\`\`\`typescript/,/\`\`\`/' $RESULT_FILE | sed '/\`\`\`/d' > src/utils/${FEATURE_NAME}.ts"
+                    read -p "생성 완료 후 Enter를 누르세요... "
+                    
+                    IMPL_FILE="src/utils/${FEATURE_NAME}.ts"
+                    if [ -f "$IMPL_FILE" ]; then
+                        set +e
+                        pnpm test "$TEST_FILE"
+                        TEST_STATUS=$?
+                        set -e
+                        
+                        if [ $TEST_STATUS -eq 0 ] && [ "$AUTO_COMMIT" == "true" ]; then
+                            auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
+                        fi
+                    fi
+                fi
             fi
         fi
         
-        read -p "구현 파일 추가 후 Enter를 누르세요..." 
+        read -p "구현 파일 추가 후 Enter를 누르세요... " 
     fi
 else
     log "프롬프트 생성: $PROMPT_FILE"
@@ -843,18 +1038,25 @@ if [ "$MODE" == "--auto" ]; then
         
         echo ""
         log "최종 테스트 실행 중..."
+        echo ""
         
         set +e
-        pnpm test
+        pnpm test --reporter=verbose
         TEST_STATUS=$?
         set -e
         
+        echo ""
         # ✅ REFACTOR 단계 자동 커밋 (테스트 통과 확인 후)
         if [ $TEST_STATUS -eq 0 ]; then
-            log_success "모든 테스트 통과!"
-            auto_commit "REFACTOR" "$REFACTORED_FILE" "$FEATURE_NAME"
+            log_success "✅ 모든 테스트 통과!"
+            
+            if [ -f "$REFACTORED_FILE" ]; then
+                auto_commit "REFACTOR" "$REFACTORED_FILE" "$FEATURE_NAME"
+            else
+                log_error "리팩토링 파일이 존재하지 않아 커밋을 건너뜁니다."
+            fi
         else
-            log_error "테스트 실패. 리팩토링을 롤백하세요."
+            log_error "❌ 테스트 실패. 리팩토링을 롤백하세요."
             log_warning "롤백 명령: git checkout $REFACTORED_FILE"
             echo ""
             read -p "롤백하시겠습니까? (y/n): " do_rollback
@@ -865,7 +1067,79 @@ if [ "$MODE" == "--auto" ]; then
         fi
         echo ""
     else
-        log_warning "파일 생성 실패. 수동으로 코드를 복사하세요: $RESULT_FILE"
+        log_warning "파일 자동 생성 실패. 수동 작업이 필요합니다."
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "📋 수동 코드 추출 방법:"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        echo "1️⃣  다음 명령으로 코드 추출:"
+        echo -e "   ${GREEN}awk '/\`\`\`typescript/,/\`\`\`/' $RESULT_FILE | sed '/\`\`\`/d' > $IMPL_FILE${NC}"
+        echo ""
+        echo "2️⃣  또는 결과 파일을 직접 확인:"
+        echo -e "   ${GREEN}cat $RESULT_FILE${NC}"
+        echo ""
+        echo "3️⃣  수동으로 파일 수정:"
+        echo -e "   ${GREEN}vi $IMPL_FILE${NC}"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        
+        # 수동 작업 대기
+        read -p "리팩토링 완료 후 Enter를 누르세요... " 
+        
+        # 수동 수정된 파일 확인
+        if [ -f "$IMPL_FILE" ]; then
+            log_success "구현 파일 확인됨: $IMPL_FILE"
+            
+            echo ""
+            log "최종 테스트 실행 중..."
+            
+            # 테스트 실행
+            set +e
+            pnpm test
+            TEST_STATUS=$?
+            set -e
+            
+            if [ $TEST_STATUS -eq 0 ]; then
+                log_success "모든 테스트 통과!"
+                
+                # 수동 수정 파일도 커밋
+                if [ "$AUTO_COMMIT" == "true" ]; then
+                    log "수동 수정된 파일을 커밋합니다..."
+                    auto_commit "REFACTOR" "$IMPL_FILE" "$FEATURE_NAME"
+                else
+                    log_warning "AUTO_COMMIT이 비활성화되어 있습니다."
+                    read -p "커밋을 생성하시겠습니까? (y/n): " do_commit
+                    if [ "$do_commit" == "y" ]; then
+                        auto_commit "REFACTOR" "$IMPL_FILE" "$FEATURE_NAME"
+                    fi
+                fi
+            else
+                log_error "테스트 실패"
+                echo ""
+                log "테스트 실패 원인을 확인하고 코드를 수정하세요:"
+                echo "  - 파일: $IMPL_FILE"
+                echo ""
+                read -p "수정 후 다시 테스트하려면 Enter를 누르세요... "
+                
+                # 재테스트
+                set +e
+                pnpm test
+                RETEST_STATUS=$?
+                set -e
+                
+                if [ $RETEST_STATUS -eq 0 ]; then
+                    log_success "테스트 통과!"
+                    if [ "$AUTO_COMMIT" == "true" ]; then
+                        auto_commit "REFACTOR" "$IMPL_FILE" "$FEATURE_NAME"
+                    fi
+                fi
+            fi
+        else
+            log_error "구현 파일을 찾을 수 없습니다: $IMPL_FILE"
+            log_warning "리팩토링을 건너뜁니다."
+        fi
     fi
 elif [ "$MODE" == "--interactive" ]; then
     read -p "Claude CLI로 실행하시겠습니까? (y/n): " confirm
@@ -885,8 +1159,28 @@ elif [ "$MODE" == "--interactive" ]; then
                 TEST_STATUS=$?
                 set -e
                 
-                if [ $TEST_STATUS -eq 0 ] && [ "$AUTO_COMMIT" == "true" ]; then
+                if [ $TEST_STATUS -eq 0 ] && [ "$AUTO_COMMIT" == "true" ] && [ -f "$REFACTORED_FILE" ]; then
                     auto_commit "REFACTOR" "$REFACTORED_FILE" "$FEATURE_NAME"
+                fi
+            else
+                # 수동 수정 옵션
+                log_warning "자동 생성 실패"
+                read -p "수동으로 파일을 수정하시겠습니까? (y/n): " manual_modify
+                if [ "$manual_modify" == "y" ]; then
+                    echo "결과 파일 확인:"
+                    echo "  cat $RESULT_FILE"
+                    read -p "수정 완료 후 Enter를 누르세요... "
+                    
+                    if [ -f "$IMPL_FILE" ]; then
+                        set +e
+                        pnpm test
+                        TEST_STATUS=$?
+                        set -e
+                        
+                        if [ $TEST_STATUS -eq 0 ] && [ "$AUTO_COMMIT" == "true" ]; then
+                            auto_commit "REFACTOR" "$IMPL_FILE" "$FEATURE_NAME"
+                        fi
+                    fi
                 fi
             fi
         fi
