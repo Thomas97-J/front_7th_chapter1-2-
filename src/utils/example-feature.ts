@@ -1,0 +1,81 @@
+export interface ValidationResult {
+  isValid: boolean;
+  error?: string;
+  warning?: string;
+}
+
+export function validateDateRange(
+  startDate: Date | string,
+  endDate: Date | string
+): ValidationResult {
+  // 1. null/undefined 체크
+  if (startDate == null && endDate == null) {
+    return { isValid: false, error: '시작일과 종료일은 필수입니다' };
+  }
+  if (startDate == null) {
+    return { isValid: false, error: '시작일은 필수입니다' };
+  }
+  if (endDate == null) {
+    return { isValid: false, error: '종료일은 필수입니다' };
+  }
+
+  // 2. 빈 문자열 체크
+  if (startDate === '' || endDate === '') {
+    return { isValid: false, error: '날짜는 필수입니다' };
+  }
+
+  // 3. 문자열을 Date 객체로 변환
+  let start: Date;
+  let end: Date;
+
+  if (typeof startDate === 'string') {
+    const trimmed = startDate.trim();
+    if (trimmed === '') {
+      return { isValid: false, error: '유효하지 않은 날짜 형식입니다' };
+    }
+    // ISO 8601 형식 검증 (간단한 정규식)
+    if (!/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      return { isValid: false, error: '유효하지 않은 날짜 형식입니다' };
+    }
+    start = new Date(startDate);
+  } else {
+    start = startDate;
+  }
+
+  if (typeof endDate === 'string') {
+    const trimmed = endDate.trim();
+    if (trimmed === '') {
+      return { isValid: false, error: '유효하지 않은 날짜 형식입니다' };
+    }
+    if (!/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      return { isValid: false, error: '유효하지 않은 날짜 형식입니다' };
+    }
+    end = new Date(endDate);
+  } else {
+    end = endDate;
+  }
+
+  // 4. Invalid Date 체크
+  if (isNaN(start.getTime())) {
+    return { isValid: false, error: '유효하지 않은 날짜입니다' };
+  }
+  if (isNaN(end.getTime())) {
+    return { isValid: false, error: '유효하지 않은 날짜입니다' };
+  }
+
+  // 5. 날짜 범위 검증
+  if (start.getTime() > end.getTime()) {
+    return { isValid: false, error: '시작일은 종료일보다 이전이어야 합니다' };
+  }
+
+  // 6. 100년 이상 차이 경고
+  const millisecondsPerYear = 365.25 * 24 * 60 * 60 * 1000;
+  const yearsDiff = (end.getTime() - start.getTime()) / millisecondsPerYear;
+
+  if (yearsDiff >= 100) {
+    return { isValid: true, warning: '날짜 범위가 100년을 초과합니다' };
+  }
+
+  // 7. 유효한 경우
+  return { isValid: true };
+}
