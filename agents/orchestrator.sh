@@ -274,7 +274,10 @@ extract_and_create_file() {
     grep -v "^// filepath:" /tmp/extracted_code.ts > "$filepath"
     
     log_success "파일 생성됨: $filepath"
+    
+    # 파일 경로 출력 (함수의 return value)
     echo "$filepath"
+    return 0
 }
 
 # Claude CLI 실행 함수
@@ -600,20 +603,37 @@ if [ "$MODE" == "--auto" ]; then
     
     # ✅ 테스트 파일 자동 생성
     log_step "테스트 파일 자동 생성"
-    TEST_FILE=$(extract_and_create_file "$RESULT_FILE" "src/__tests__/unit/${FEATURE_NAME}.spec.ts")
     
-    if [ $? -eq 0 ]; then
+    # set -e 일시적으로 비활성화 (extract 실패해도 스크립트 계속 진행)
+    set +e
+    TEST_FILE=$(extract_and_create_file "$RESULT_FILE" "src/__tests__/unit/${FEATURE_NAME}.spec.ts")
+    EXTRACT_STATUS=$?
+    set -e
+    
+    if [ $EXTRACT_STATUS -eq 0 ] && [ -n "$TEST_FILE" ] && [ -f "$TEST_FILE" ]; then
         log_success "테스트 파일 생성 완료: $TEST_FILE"
         
         echo ""
         log "테스트 실행 중..."
-        pnpm test "$TEST_FILE" || true  # 실패해도 계속 진행
+        
+        # 테스트 실패해도 스크립트 계속 진행 (RED 단계에서는 실패가 예상됨)
+        set +e
+        pnpm test "$TEST_FILE"
+        TEST_STATUS=$?
+        set -e
+        
+        if [ $TEST_STATUS -ne 0 ]; then
+            log_warning "테스트 실패 (예상된 동작 - RED 단계)"
+        fi
         echo ""
         
         # ✅ RED 단계 자동 커밋
         auto_commit "RED" "$TEST_FILE" "$FEATURE_NAME"
     else
-        log_warning "수동으로 코드를 복사하세요: $RESULT_FILE"
+        log_warning "파일 생성 실패. 수동으로 코드를 복사하세요: $RESULT_FILE"
+        echo ""
+        echo "다음 명령으로 수동 추출 가능:"
+        echo "  awk '/\`\`\`typescript/,/\`\`\`/' $RESULT_FILE | sed '/\`\`\`/d' > src/__tests__/unit/${FEATURE_NAME}.spec.ts"
     fi
     
     read -p "테스트 확인 후 Enter를 누르세요..." 
@@ -624,11 +644,19 @@ elif [ "$MODE" == "--interactive" ]; then
         
         read -p "테스트 파일을 자동으로 생성하시겠습니까? (y/n): " create_file
         if [ "$create_file" == "y" ]; then
+            set +e
             TEST_FILE=$(extract_and_create_file "$RESULT_FILE" "src/__tests__/unit/${FEATURE_NAME}.spec.ts")
-            pnpm test "$TEST_FILE" || true
+            EXTRACT_STATUS=$?
+            set -e
             
-            if [ "$AUTO_COMMIT" == "true" ]; then
-                auto_commit "RED" "$TEST_FILE" "$FEATURE_NAME"
+            if [ $EXTRACT_STATUS -eq 0 ]; then
+                set +e
+                pnpm test "$TEST_FILE"
+                set -e
+                
+                if [ "$AUTO_COMMIT" == "true" ]; then
+                    auto_commit "RED" "$TEST_FILE" "$FEATURE_NAME"
+                fi
             fi
         fi
         
@@ -690,25 +718,37 @@ if [ "$MODE" == "--auto" ]; then
     
     # ✅ 구현 파일 자동 생성
     log_step "구현 파일 자동 생성"
-    IMPL_FILE=$(extract_and_create_file "$RESULT_FILE" "src/utils/${FEATURE_NAME}.ts")
     
-    if [ $? -eq 0 ]; then
+    set +e
+    IMPL_FILE=$(extract_and_create_file "$RESULT_FILE" "src/utils/${FEATURE_NAME}.ts")
+    EXTRACT_STATUS=$?
+    set -e
+    
+    if [ $EXTRACT_STATUS -eq 0 ] && [ -n "$IMPL_FILE" ] && [ -f "$IMPL_FILE" ]; then
         log_success "구현 파일 생성 완료: $IMPL_FILE"
         
         echo ""
         log "테스트 실행 중..."
+        
+        set +e
         pnpm test "$TEST_FILE"
+        TEST_STATUS=$?
+        set -e
         
         # ✅ GREEN 단계 자동 커밋 (테스트 통과 확인 후)
-        if [ $? -eq 0 ]; then
+        if [ $TEST_STATUS -eq 0 ]; then
             log_success "모든 테스트 통과!"
             auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
         else
             log_error "테스트 실패. 커밋을 건너뜁니다."
+            echo ""
+            log "테스트 실패 원인을 확인하고 코드를 수정하세요:"
+            echo "  - 파일: $IMPL_FILE"
+            echo "  - 테스트: $TEST_FILE"
         fi
         echo ""
     else
-        log_warning "수동으로 코드를 복사하세요: $RESULT_FILE"
+        log_warning "파일 생성 실패. 수동으로 코드를 복사하세요: $RESULT_FILE"
     fi
     
     read -p "구현 확인 후 Enter를 누르세요..." 
@@ -719,11 +759,20 @@ elif [ "$MODE" == "--interactive" ]; then
         
         read -p "구현 파일을 자동으로 생성하시겠습니까? (y/n): " create_file
         if [ "$create_file" == "y" ]; then
+            set +e
             IMPL_FILE=$(extract_and_create_file "$RESULT_FILE" "src/utils/${FEATURE_NAME}.ts")
-            pnpm test "$TEST_FILE"
+            EXTRACT_STATUS=$?
+            set -e
             
-            if [ $? -eq 0 ] && [ "$AUTO_COMMIT" == "true" ]; then
-                auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
+            if [ $EXTRACT_STATUS -eq 0 ]; then
+                set +e
+                pnpm test "$TEST_FILE"
+                TEST_STATUS=$?
+                set -e
+                
+                if [ $TEST_STATUS -eq 0 ] && [ "$AUTO_COMMIT" == "true" ]; then
+                    auto_commit "GREEN" "$IMPL_FILE" "$FEATURE_NAME"
+                fi
             fi
         fi
         
@@ -783,26 +832,40 @@ if [ "$MODE" == "--auto" ]; then
     
     # ✅ 리팩토링된 코드 적용
     log_step "리팩토링된 코드 적용"
-    REFACTORED_FILE=$(extract_and_create_file "$RESULT_FILE" "$IMPL_FILE")
     
-    if [ $? -eq 0 ]; then
+    set +e
+    REFACTORED_FILE=$(extract_and_create_file "$RESULT_FILE" "$IMPL_FILE")
+    EXTRACT_STATUS=$?
+    set -e
+    
+    if [ $EXTRACT_STATUS -eq 0 ] && [ -n "$REFACTORED_FILE" ] && [ -f "$REFACTORED_FILE" ]; then
         log_success "리팩토링 완료: $REFACTORED_FILE"
         
         echo ""
         log "최종 테스트 실행 중..."
+        
+        set +e
         pnpm test
+        TEST_STATUS=$?
+        set -e
         
         # ✅ REFACTOR 단계 자동 커밋 (테스트 통과 확인 후)
-        if [ $? -eq 0 ]; then
+        if [ $TEST_STATUS -eq 0 ]; then
             log_success "모든 테스트 통과!"
             auto_commit "REFACTOR" "$REFACTORED_FILE" "$FEATURE_NAME"
         else
             log_error "테스트 실패. 리팩토링을 롤백하세요."
             log_warning "롤백 명령: git checkout $REFACTORED_FILE"
+            echo ""
+            read -p "롤백하시겠습니까? (y/n): " do_rollback
+            if [ "$do_rollback" == "y" ]; then
+                git checkout "$REFACTORED_FILE"
+                log_success "롤백 완료"
+            fi
         fi
         echo ""
     else
-        log_warning "수동으로 코드를 복사하세요: $RESULT_FILE"
+        log_warning "파일 생성 실패. 수동으로 코드를 복사하세요: $RESULT_FILE"
     fi
 elif [ "$MODE" == "--interactive" ]; then
     read -p "Claude CLI로 실행하시겠습니까? (y/n): " confirm
@@ -811,11 +874,20 @@ elif [ "$MODE" == "--interactive" ]; then
         
         read -p "리팩토링된 코드를 적용하시겠습니까? (y/n): " apply_code
         if [ "$apply_code" == "y" ]; then
+            set +e
             REFACTORED_FILE=$(extract_and_create_file "$RESULT_FILE" "$IMPL_FILE")
-            pnpm test
+            EXTRACT_STATUS=$?
+            set -e
             
-            if [ $? -eq 0 ] && [ "$AUTO_COMMIT" == "true" ]; then
-                auto_commit "REFACTOR" "$REFACTORED_FILE" "$FEATURE_NAME"
+            if [ $EXTRACT_STATUS -eq 0 ]; then
+                set +e
+                pnpm test
+                TEST_STATUS=$?
+                set -e
+                
+                if [ $TEST_STATUS -eq 0 ] && [ "$AUTO_COMMIT" == "true" ]; then
+                    auto_commit "REFACTOR" "$REFACTORED_FILE" "$FEATURE_NAME"
+                fi
             fi
         fi
     fi
