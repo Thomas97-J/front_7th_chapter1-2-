@@ -63,7 +63,7 @@ export function validateDateRange(
     };
   }
 
-  // 4. Compare dates
+  // 4. Date comparison
   if (parsedStartDate.getTime() > parsedEndDate.getTime()) {
     return {
       isValid: false,
@@ -71,21 +71,22 @@ export function validateDateRange(
     };
   }
 
-  // 5. Check for 100+ year difference (warning)
+  // 5. Check for 100-year difference warning
   const millisecondsPerYear = 365.25 * 24 * 60 * 60 * 1000;
   const yearsDifference =
     (parsedEndDate.getTime() - parsedStartDate.getTime()) / millisecondsPerYear;
 
-  if (yearsDifference >= 100) {
+  if (yearsDifference > 100) {
     return {
       isValid: true,
-      warning: '날짜 범위가 100년 이상입니다',
+      warning: '날짜 범위가 100년을 초과합니다',
     };
   }
 
   return { isValid: true };
 }
 
+// Helper functions
 function parseDate(date: Date | string): Date | null {
   if (date instanceof Date) {
     return date;
