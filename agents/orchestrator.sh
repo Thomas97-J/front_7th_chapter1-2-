@@ -5,7 +5,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-echo $SCRIPT_DIR
+
 # 공통 라이브러리 로드
 source "$SCRIPT_DIR/lib/common.sh"
 source "$AGENTS_ROOT/lib/git.sh"
@@ -21,36 +21,115 @@ source "$AGENTS_ROOT/steps/step5_refactor.sh"
 # 디렉토리 생성
 mkdir -p agents/logs agents/results
 
+# ✅ 재시도 로직 함수
+retry_step() {
+    local step_name=$1
+    local step_function=$2
+    local max_retries=$3
+    shift 3
+    local step_args=("$@")
+    
+    local retry_count=0
+    local success=false
+    
+    while [ $retry_count -lt $max_retries ]; do
+        if [ $retry_count -gt 0 ]; then
+            log_warning "재시도 $retry_count/$((max_retries - 1))..."
+            echo ""
+            
+            # 이전 실패 정보 출력
+            if [ -f "/tmp/test_output.log" ]; then
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "이전 실패 원인:"
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                tail -20 /tmp/test_output.log
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo ""
+            fi
+            
+            read -p "계속하려면 Enter를 누르세요 (q로 중단)... " continue_retry
+            if [ "$continue_retry" == "q" ]; then
+                log_warning "$step_name 중단됨"
+                return 1
+            fi
+        fi
+        
+        # Step 함수 실행
+        set +e
+        $step_function "${step_args[@]}"
+        local step_result=$?
+        set -e
+        
+        if [ $step_result -eq 0 ]; then
+            success=true
+            break
+        else
+            retry_count=$((retry_count + 1))
+            
+            if [ $retry_count -lt $max_retries ]; then
+                log_error "$step_name 실패 (시도 $retry_count/$((max_retries - 1)))"
+                
+                if [ "$MODE" == "--interactive" ]; then
+                    echo ""
+                    read -p "수동으로 수정하시겠습니까? (y/n): " manual_fix
+                    if [ "$manual_fix" == "y" ]; then
+                        echo ""
+                        echo "💡 수정 가이드:"
+                        echo "  1. 에디터로 파일 수정"
+                        echo "  2. 테스트 실행: pnpm test"
+                        echo "  3. 통과하면 이 창으로 돌아와 Enter"
+                        echo ""
+                        read -p "수정 완료 후 Enter를 누르세요... "
+                        
+                        # 테스트 재실행
+                        if pnpm test 2>&1 | tee /tmp/test_output.log; then
+                            log_success "테스트 통과!"
+                            success=true
+                            break
+                        fi
+                    fi
+                fi
+            fi
+        fi
+    done
+    
+    if [ "$success" == "true" ]; then
+        log_success "$step_name 완료 ✅"
+        return 0
+    else
+        log_error "$step_name 실패 ❌ (최대 재시도 횟수 초과)"
+        
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "💡 다음 단계로 건너뛰시겠습니까?"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        read -p "(y: 건너뛰기 / n: 중단) " skip_step
+        
+        if [ "$skip_step" == "y" ]; then
+            log_warning "$step_name 건너뛰기"
+            return 0
+        else
+            log_error "워크플로우 중단"
+            return 1
+        fi
+    fi
+}
+
 # 사용법 출력
 show_usage() {
     echo "사용법: $0 <요구사항 파일> [모드] [옵션]"
     echo ""
     echo "모드:"
-    echo "  --auto        Claude CLI를 자동으로 실행 (추천)"
+    echo "  --auto        Claude CLI를 자동으로 실행"
     echo "  --interactive 단계별로 확인하며 진행"
     echo "  --manual      프롬프트만 생성 (기본값)"
     echo ""
     echo "옵션:"
-    echo "  --commit      각 단계마다 자동으로 Git 커밋"
-    echo "  --branch      기능 브랜치 자동 생성 (PR 준비)"
+    echo "  --commit      각 단계마다 자동 커밋"
+    echo "  --branch      기능 브랜치 자동 생성"
     echo "  --push        리모트로 자동 푸시"
-    echo "  --pr          브랜치 생성 + 커밋 + 푸시 (= --branch --commit --push)"
-    echo ""
-    echo "예시:"
-    echo "  # 완전 자동화 (PR 준비)"
-    echo "  $0 specs/feature.md --auto --pr"
-    echo ""
-    echo "  # 브랜치 + 커밋만 (푸시는 수동)"
-    echo "  $0 specs/feature.md --auto --branch --commit"
-    echo ""
-    echo "  # 단계별 확인"
-    echo "  $0 specs/feature.md --interactive --branch --commit"
-    echo ""
-    echo "  # 수동 모드 (프롬프트만 생성)"
-    echo "  $0 specs/feature.md --manual"
-    echo ""
-    echo "Claude CLI 설치:"
-    echo "  npm install -g @anthropic-ai/claude-cli"
+    echo "  --pr          --branch --commit --push 통합"
+    echo "  --max-retries=N  최대 재시도 횟수 설정 (기본: 3)"
 }
 
 # 인자 확인
@@ -65,6 +144,7 @@ MODE="${2:---manual}"
 export AUTO_COMMIT="false"
 export AUTO_BRANCH="false"
 export AUTO_PUSH="false"
+export MAX_RETRIES=3  # ✅ 기본 재시도 횟수
 export FEATURE_BRANCH=""
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
@@ -80,7 +160,9 @@ while [ $# -gt 0 ]; do
             AUTO_BRANCH="true"
             AUTO_PUSH="true"
             ;;
-        --no-commit) AUTO_COMMIT="false" ;;
+        --max-retries=*)
+            MAX_RETRIES="${1#*=}"
+            ;;
     esac
     shift
 done
@@ -97,47 +179,51 @@ log "TDD 워크플로우 시작: $SPEC_FILE"
 log "모드: $MODE"
 log "자동 커밋: $AUTO_COMMIT"
 log "자동 브랜치: $AUTO_BRANCH"
-log "자동 푸시: $AUTO_PUSH"
+log "최대 재시도: $MAX_RETRIES"
 echo ""
 
 # 브랜치 생성
 if [ "$AUTO_BRANCH" == "true" ]; then
     create_feature_branch "$FEATURE_NAME"
-    
-    if [ $? -ne 0 ]; then
-        log_error "브랜치 생성 실패. 워크플로우를 종료합니다."
-        exit 1
-    fi
 fi
 
-# 각 단계 실행
+# ✅ 각 단계 실행 (재시도 로직 적용)
+
+# Step 1: 명세 검증 (재시도 불필요)
 run_step1 "$SPEC_FILE" "$MODE" "$TIMESTAMP"
+
+# Step 2: 테스트 설계 (재시도 불필요)
 run_step2 "$SPEC_FILE" "$MODE" "$TIMESTAMP"
-run_step3 "$SPEC_FILE" "$MODE" "$TIMESTAMP" "$FEATURE_NAME"
-run_step4 "$SPEC_FILE" "$MODE" "$TIMESTAMP" "$FEATURE_NAME"
-run_step5 "$SPEC_FILE" "$MODE" "$TIMESTAMP" "$FEATURE_NAME"
+
+# Step 3: RED (재시도 가능)
+if ! retry_step "Step 3 (RED)" run_step3 2 "$SPEC_FILE" "$MODE" "$TIMESTAMP" "$FEATURE_NAME"; then
+    log_error "Step 3 실패로 워크플로우 중단"
+    exit 1
+fi
+
+# Step 4: GREEN (재시도 적용 - 중요!) ⭐
+if ! retry_step "Step 4 (GREEN)" run_step4 $MAX_RETRIES "$SPEC_FILE" "$MODE" "$TIMESTAMP" "$FEATURE_NAME"; then
+    log_error "Step 4 실패로 워크플로우 중단"
+    exit 1
+fi
+
+# Step 5: REFACTOR (재시도 가능)
+if ! retry_step "Step 5 (REFACTOR)" run_step5 2 "$SPEC_FILE" "$MODE" "$TIMESTAMP" "$FEATURE_NAME"; then
+    log_warning "Step 5 실패했지만 계속 진행"
+fi
 
 # 완료
 log_step "워크플로우 완료! 🎉"
-log_success "모든 단계가 완료되었습니다"
-echo ""
 
-# PR 생성 가이드 출력
 if [ "$AUTO_BRANCH" == "true" ]; then
     show_pr_guide
 fi
 
 log "생성된 파일:"
-echo "  📁 프롬프트: agents/logs/"
-echo "  📁 결과: agents/results/"
-if [ -n "$TEST_FILE" ]; then
-    echo "  📄 테스트: $TEST_FILE"
-fi
-if [ -n "$IMPL_FILE" ]; then
-    echo "  📄 구현: $IMPL_FILE"
-fi
-echo ""
+echo "  📄 테스트: ${TEST_FILE:-'N/A'}"
+echo "  📄 구현: ${IMPL_FILE:-'N/A'}"
 
+echo ""
 log "최종 체크리스트:"
 echo "  1. ✅ 테스트 작성 완료"
 echo "  2. ✅ 구현 완료"
@@ -146,15 +232,7 @@ if [ "$AUTO_COMMIT" == "true" ]; then
     echo "  4. ✅ Git 커밋 완료"
 fi
 if [ "$AUTO_BRANCH" == "true" ]; then
-    echo "  5. ⬜ 리모트로 푸시 (git push -u origin $FEATURE_BRANCH)"
-    echo "  6. ⬜ GitHub에서 PR 생성"
+    echo "  5. ⬜ GitHub에서 PR 생성"
 else
-    echo "  4. ⬜ pnpm test 실행하여 모든 테스트 통과 확인"
     echo "  5. ⬜ git add & commit으로 변경사항 저장"
-fi
-echo ""
-
-if [ "$MODE" == "--manual" ]; then
-    log "💡 팁: 다음번엔 자동 모드를 사용해보세요!"
-    echo "  $0 $SPEC_FILE --auto --pr"
 fi

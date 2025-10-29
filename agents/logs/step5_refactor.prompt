@@ -1,6 +1,13 @@
-당신은 TDD REFACTOR 단계 전문가입니다.
+# SYSTEM: 당신은 TDD REFACTOR 단계 전문가입니다. 항상 즉시 개선된 구현 코드를 작성합니다.
+
 
 **즉시 개선된 코드를 작성하세요. 권한 요청 없이 바로 작성합니다.**
+
+당신의 역할:
+- ✅ 즉시 개선된 구현 코드 작성
+- ❌ 권한 요청 금지
+- ❌ 확인 질문 금지
+- ❌ 설명만 제공 금지
 
 ## 원본 명세
 
@@ -45,101 +52,106 @@ export interface ValidationResult {
   warning?: string;
 }
 
-type DateInput = Date | string | null | undefined;
-
 export function validateDateRange(
-  startDate: DateInput,
-  endDate: DateInput
+  startDate: Date | string | null | undefined,
+  endDate: Date | string | null | undefined
 ): ValidationResult {
-  // null/undefined 체크 - 시작일
-  if (startDate === null || startDate === undefined) {
+  // 1. Null/undefined checks
+  if (!startDate && !endDate) {
     return {
       isValid: false,
-      error: '시작일이 유효하지 않습니다'
+      error: '시작일과 종료일은 필수입니다'
     };
   }
-
-  // null/undefined 체크 - 종료일
-  if (endDate === null || endDate === undefined) {
+  
+  if (!startDate) {
     return {
       isValid: false,
-      error: '종료일이 유효하지 않습니다'
+      error: '시작일은 필수입니다'
     };
   }
-
-  // 빈 문자열 체크
-  if (startDate === '') {
+  
+  if (!endDate) {
     return {
       isValid: false,
-      error: '시작일 형식이 올바르지 않습니다'
+      error: '종료일은 필수입니다'
     };
   }
-
-  if (endDate === '') {
+  
+  // 2. Parse dates
+  const parsedStartDate = parseDate(startDate);
+  const parsedEndDate = parseDate(endDate);
+  
+  // 3. Validate parsed dates
+  if (!parsedStartDate) {
     return {
       isValid: false,
-      error: '종료일 형식이 올바르지 않습니다'
+      error: '유효하지 않은 시작일 형식입니다'
     };
   }
-
-  // 숫자 타입 체크 (timestamp 거부)
-  if (typeof startDate === 'number') {
+  
+  if (!parsedEndDate) {
     return {
       isValid: false,
-      error: '시작일 형식이 올바르지 않습니다'
+      error: '유효하지 않은 종료일 형식입니다'
     };
   }
-
-  if (typeof endDate === 'number') {
+  
+  if (!isValidDate(parsedStartDate)) {
     return {
       isValid: false,
-      error: '종료일 형식이 올바르지 않습니다'
+      error: '유효하지 않은 시작일 형식입니다'
     };
   }
-
-  // Date 객체로 변환
-  const start = startDate instanceof Date ? startDate : new Date(startDate);
-  const end = endDate instanceof Date ? endDate : new Date(endDate);
-
-  // Invalid Date 체크 - 시작일
-  if (isNaN(start.getTime())) {
+  
+  if (!isValidDate(parsedEndDate)) {
     return {
       isValid: false,
-      error: '시작일 형식이 올바르지 않습니다'
+      error: '유효하지 않은 종료일 형식입니다'
     };
   }
-
-  // Invalid Date 체크 - 종료일
-  if (isNaN(end.getTime())) {
+  
+  // 4. Compare dates
+  if (parsedStartDate.getTime() > parsedEndDate.getTime()) {
     return {
       isValid: false,
-      error: '종료일 형식이 올바르지 않습니다'
+      error: '시작일은 종료일보다 이전이어야 합니다'
     };
   }
-
-  // 시작일이 종료일보다 이후인지 체크
-  if (start.getTime() > end.getTime()) {
-    return {
-      isValid: false,
-      error: '시작일이 종료일보다 이후입니다'
-    };
-  }
-
-  // 100년 초과 체크
-  const millisecondsPerYear = 365.25 * 24 * 60 * 60 * 1000;
-  const yearsDiff = (end.getTime() - start.getTime()) / millisecondsPerYear;
-
+  
+  // 5. Check for 100-year difference (warning)
+  const yearsDiff = (parsedEndDate.getTime() - parsedStartDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+  
   if (yearsDiff > 100) {
     return {
       isValid: true,
       warning: '날짜 범위가 100년을 초과합니다'
     };
   }
+  
+  return { isValid: true };
+}
 
-  // 정상 케이스
-  return {
-    isValid: true
-  };
+// Helper functions
+function parseDate(date: Date | string): Date | null {
+  try {
+    if (date instanceof Date) {
+      return date;
+    }
+    
+    if (typeof date === 'string') {
+      const parsed = new Date(date);
+      return parsed;
+    }
+    
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function isValidDate(date: Date): boolean {
+  return date instanceof Date && !isNaN(date.getTime());
 }
 ```
 
