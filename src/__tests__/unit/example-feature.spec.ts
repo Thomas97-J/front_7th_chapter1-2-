@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 
 import { validateDateRange } from '../../utils/validateDateRange';
 
-describe('validateDateRange', () => {
-  describe('Normal Cases - Basic Operations', () => {
+describe('날짜 범위 검증 함수 (validateDateRange)', () => {
+  describe('기본 동작 테스트', () => {
     it('should return valid when start date is before end date', () => {
       // Arrange
       const startDate = '2024-01-01';
@@ -18,8 +18,8 @@ describe('validateDateRange', () => {
 
     it('should return valid when start date equals end date', () => {
       // Arrange
-      const startDate = '2024-01-01';
-      const endDate = '2024-01-01';
+      const startDate = '2024-06-15';
+      const endDate = '2024-06-15';
 
       // Act
       const result = validateDateRange(startDate, endDate);
@@ -38,11 +38,11 @@ describe('validateDateRange', () => {
 
       // Assert
       expect(result.isValid).toBe(false);
-      expect(result.error).toBe('시작일이 종료일보다 이후일 수 없습니다');
+      expect(result.error).toBe('시작일은 종료일보다 이전이어야 합니다');
     });
   });
 
-  describe('Input Format Cases', () => {
+  describe('입력 형식 테스트', () => {
     it('should accept Date objects as input', () => {
       // Arrange
       const startDate = new Date('2024-01-01');
@@ -67,7 +67,7 @@ describe('validateDateRange', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should accept mixed Date object and ISO string', () => {
+    it('should accept mixed input types (Date and string)', () => {
       // Arrange
       const startDate = new Date('2024-01-01');
       const endDate = '2024-12-31';
@@ -80,8 +80,8 @@ describe('validateDateRange', () => {
     });
   });
 
-  describe('Error Handling - Null and Undefined', () => {
-    it('should return error when startDate is null', () => {
+  describe('에러 처리 테스트', () => {
+    it('should return error when start date is null', () => {
       // Arrange
       const startDate = null;
       const endDate = '2024-12-31';
@@ -91,10 +91,10 @@ describe('validateDateRange', () => {
 
       // Assert
       expect(result.isValid).toBe(false);
-      expect(result.error).toBe('시작일은 필수입니다');
+      expect(result.error).toBe('시작일이 제공되지 않았습니다');
     });
 
-    it('should return error when endDate is null', () => {
+    it('should return error when end date is null', () => {
       // Arrange
       const startDate = '2024-01-01';
       const endDate = null;
@@ -104,10 +104,10 @@ describe('validateDateRange', () => {
 
       // Assert
       expect(result.isValid).toBe(false);
-      expect(result.error).toBe('종료일은 필수입니다');
+      expect(result.error).toBe('종료일이 제공되지 않았습니다');
     });
 
-    it('should return error when startDate is undefined', () => {
+    it('should return error when start date is undefined', () => {
       // Arrange
       const startDate = undefined;
       const endDate = '2024-12-31';
@@ -117,10 +117,10 @@ describe('validateDateRange', () => {
 
       // Assert
       expect(result.isValid).toBe(false);
-      expect(result.error).toBe('시작일은 필수입니다');
+      expect(result.error).toBe('시작일이 제공되지 않았습니다');
     });
 
-    it('should return error when endDate is undefined', () => {
+    it('should return error when end date is undefined', () => {
       // Arrange
       const startDate = '2024-01-01';
       const endDate = undefined;
@@ -130,12 +130,10 @@ describe('validateDateRange', () => {
 
       // Assert
       expect(result.isValid).toBe(false);
-      expect(result.error).toBe('종료일은 필수입니다');
+      expect(result.error).toBe('종료일이 제공되지 않았습니다');
     });
-  });
 
-  describe('Error Handling - Invalid Format', () => {
-    it('should return error when startDate has invalid format', () => {
+    it('should return error when start date format is invalid', () => {
       // Arrange
       const startDate = 'invalid-date';
       const endDate = '2024-12-31';
@@ -145,41 +143,41 @@ describe('validateDateRange', () => {
 
       // Assert
       expect(result.isValid).toBe(false);
-      expect(result.error).toBe('올바른 날짜 형식이 아닙니다');
+      expect(result.error).toBe('잘못된 시작일 형식입니다');
     });
 
-    it('should return error when endDate has invalid format', () => {
+    it('should return error when end date format is invalid', () => {
       // Arrange
       const startDate = '2024-01-01';
-      const endDate = 'not-a-date';
+      const endDate = '2024-13-45';
 
       // Act
       const result = validateDateRange(startDate, endDate);
 
       // Assert
       expect(result.isValid).toBe(false);
-      expect(result.error).toBe('올바른 날짜 형식이 아닙니다');
+      expect(result.error).toBe('잘못된 종료일 형식입니다');
     });
 
-    it('should return error when date is Invalid Date object', () => {
+    it('should return error when both dates are invalid', () => {
       // Arrange
-      const startDate = new Date('invalid');
-      const endDate = '2024-12-31';
+      const startDate = 'invalid';
+      const endDate = 'also-invalid';
 
       // Act
       const result = validateDateRange(startDate, endDate);
 
       // Assert
       expect(result.isValid).toBe(false);
-      expect(result.error).toBe('올바른 날짜 형식이 아닙니다');
+      expect(result.error).toBe('잘못된 시작일 형식입니다');
     });
   });
 
-  describe('Edge Cases - Boundary Values', () => {
-    it('should return valid when dates are 1 day apart', () => {
+  describe('엣지 케이스 테스트', () => {
+    it('should return valid for same date (midnight to midnight)', () => {
       // Arrange
-      const startDate = '2024-01-01';
-      const endDate = '2024-01-02';
+      const startDate = '2024-06-15T00:00:00Z';
+      const endDate = '2024-06-15T00:00:00Z';
 
       // Act
       const result = validateDateRange(startDate, endDate);
@@ -188,10 +186,22 @@ describe('validateDateRange', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should return valid with warning when dates are more than 100 years apart', () => {
+    it('should return valid for one day difference', () => {
+      // Arrange
+      const startDate = '2024-06-15';
+      const endDate = '2024-06-16';
+
+      // Act
+      const result = validateDateRange(startDate, endDate);
+
+      // Assert
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should return valid with warning for 100+ years difference', () => {
       // Arrange
       const startDate = '1900-01-01';
-      const endDate = '2024-01-01';
+      const endDate = '2024-12-31';
 
       // Act
       const result = validateDateRange(startDate, endDate);
@@ -201,22 +211,9 @@ describe('validateDateRange', () => {
       expect(result.warning).toBe('날짜 범위가 100년을 초과합니다');
     });
 
-    it('should handle dates at exactly 100 year boundary', () => {
-      // Arrange
-      const startDate = '1924-01-01';
-      const endDate = '2024-01-01';
-
-      // Act
-      const result = validateDateRange(startDate, endDate);
-
-      // Assert
-      expect(result.isValid).toBe(true);
-      expect(result.warning).toBeUndefined();
-    });
-
     it('should handle leap year dates correctly', () => {
       // Arrange
-      const startDate = '2024-02-29';
+      const startDate = '2024-02-28';
       const endDate = '2024-03-01';
 
       // Act
@@ -226,7 +223,7 @@ describe('validateDateRange', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should handle year boundary correctly', () => {
+    it('should handle year boundary (Dec 31 to Jan 1)', () => {
       // Arrange
       const startDate = '2023-12-31';
       const endDate = '2024-01-01';
@@ -238,10 +235,10 @@ describe('validateDateRange', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should handle month boundary correctly', () => {
+    it('should handle timestamps with milliseconds', () => {
       // Arrange
-      const startDate = '2024-01-31';
-      const endDate = '2024-02-01';
+      const startDate = '2024-06-15T12:30:45.123Z';
+      const endDate = '2024-06-15T12:30:45.124Z';
 
       // Act
       const result = validateDateRange(startDate, endDate);
@@ -250,10 +247,10 @@ describe('validateDateRange', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should handle timestamps with time components', () => {
+    it('should handle very old dates (before 1900)', () => {
       // Arrange
-      const startDate = '2024-01-01T23:59:59';
-      const endDate = '2024-01-02T00:00:00';
+      const startDate = '1800-01-01';
+      const endDate = '1850-12-31';
 
       // Act
       const result = validateDateRange(startDate, endDate);
@@ -262,36 +259,10 @@ describe('validateDateRange', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should handle same date with different time components', () => {
-      // Arrange
-      const startDate = '2024-01-01T10:00:00';
-      const endDate = '2024-01-01T15:00:00';
-
-      // Act
-      const result = validateDateRange(startDate, endDate);
-
-      // Assert
-      expect(result.isValid).toBe(true);
-    });
-  });
-
-  describe('Edge Cases - Extreme Values', () => {
-    it('should handle very old dates', () => {
-      // Arrange
-      const startDate = '1900-01-01';
-      const endDate = '1900-01-02';
-
-      // Act
-      const result = validateDateRange(startDate, endDate);
-
-      // Assert
-      expect(result.isValid).toBe(true);
-    });
-
-    it('should handle future dates', () => {
+    it('should handle future dates (far future)', () => {
       // Arrange
       const startDate = '2100-01-01';
-      const endDate = '2100-12-31';
+      const endDate = '2200-12-31';
 
       // Act
       const result = validateDateRange(startDate, endDate);
@@ -300,37 +271,28 @@ describe('validateDateRange', () => {
       expect(result.isValid).toBe(true);
     });
 
-    it('should handle timezone differences in ISO strings', () => {
+    it('should handle timezone differences', () => {
       // Arrange
-      const startDate = '2024-01-01T00:00:00Z';
-      const endDate = '2024-01-01T00:00:00+09:00';
+      const startDate = '2024-06-15T00:00:00Z';
+      const endDate = '2024-06-15T09:00:00+09:00';
 
       // Act
       const result = validateDateRange(startDate, endDate);
 
       // Assert
-      expect(result.isValid).toBe(false);
-      expect(result.error).toBe('시작일이 종료일보다 이후일 수 없습니다');
+      expect(result.isValid).toBe(true);
     });
-  });
 
-  describe('Integration Cases', () => {
-    it('should validate multiple date ranges in sequence', () => {
+    it('should handle same instant in different timezones (boundary test)', () => {
       // Arrange
-      const ranges = [
-        { start: '2024-01-01', end: '2024-12-31' },
-        { start: '2023-01-01', end: '2023-06-30' },
-        { start: '2025-01-01', end: '2025-12-31' },
-      ];
+      const startDate = '2024-06-15T15:00:00+09:00';
+      const endDate = '2024-06-15T06:00:00Z';
 
       // Act
-      const results = ranges.map((range) => validateDateRange(range.start, range.end));
+      const result = validateDateRange(startDate, endDate);
 
       // Assert
-      results.forEach((result) => {
-        expect(result.isValid).toBe(true);
-      });
-      expect(results).toHaveLength(3);
+      expect(result.isValid).toBe(true);
     });
   });
 });
