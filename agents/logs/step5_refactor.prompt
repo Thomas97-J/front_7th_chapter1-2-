@@ -1,5 +1,7 @@
 당신은 TDD REFACTOR 단계 전문가입니다.
 
+**즉시 개선된 코드를 작성하세요. 권한 요청 없이 바로 작성합니다.**
+
 ## 원본 명세
 
 # 예제 기능 명세: 날짜 범위 검증 함수
@@ -32,12 +34,10 @@
 - 1일 차이: 유효
 - 100년 이상 차이: 유효 (경고 메시지)
 
-## GREEN 단계 구현 코드 (Step 4)
-
-테스트를 통과시키는 최소한의 구현을 작성하겠습니다.
+## GREEN 단계 구현 코드
 
 ```typescript
-// filepath: src/utils/dateRangeValidation.ts
+// filepath: src/utils/validateDateRange.ts
 
 export interface ValidationResult {
   isValid: boolean;
@@ -45,99 +45,160 @@ export interface ValidationResult {
   warning?: string;
 }
 
+type DateInput = Date | string | null | undefined;
+
 export function validateDateRange(
-  startDate: Date | string | null | undefined,
-  endDate: Date | string | null | undefined
+  startDate: DateInput,
+  endDate: DateInput
 ): ValidationResult {
-  // null/undefined 체크
+  // null/undefined 체크 - 시작일
   if (startDate === null || startDate === undefined) {
-    return { isValid: false, error: '시작일은 필수입니다' };
-  }
-  
-  if (endDate === null || endDate === undefined) {
-    return { isValid: false, error: '종료일은 필수입니다' };
+    return {
+      isValid: false,
+      error: '시작일이 유효하지 않습니다'
+    };
   }
 
-  // 빈 문자열 또는 공백 체크
-  if (typeof startDate === 'string' && startDate.trim() === '') {
-    return { isValid: false, error: '유효하지 않은 시작일 형식입니다' };
+  // null/undefined 체크 - 종료일
+  if (endDate === null || endDate === undefined) {
+    return {
+      isValid: false,
+      error: '종료일이 유효하지 않습니다'
+    };
   }
-  
-  if (typeof endDate === 'string' && endDate.trim() === '') {
-    return { isValid: false, error: '유효하지 않은 종료일 형식입니다' };
+
+  // 빈 문자열 체크
+  if (startDate === '') {
+    return {
+      isValid: false,
+      error: '시작일 형식이 올바르지 않습니다'
+    };
+  }
+
+  if (endDate === '') {
+    return {
+      isValid: false,
+      error: '종료일 형식이 올바르지 않습니다'
+    };
+  }
+
+  // 숫자 타입 체크 (timestamp 거부)
+  if (typeof startDate === 'number') {
+    return {
+      isValid: false,
+      error: '시작일 형식이 올바르지 않습니다'
+    };
+  }
+
+  if (typeof endDate === 'number') {
+    return {
+      isValid: false,
+      error: '종료일 형식이 올바르지 않습니다'
+    };
   }
 
   // Date 객체로 변환
-  let startDateObj: Date;
-  let endDateObj: Date;
+  const start = startDate instanceof Date ? startDate : new Date(startDate);
+  const end = endDate instanceof Date ? endDate : new Date(endDate);
 
-  if (startDate instanceof Date) {
-    startDateObj = startDate;
-  } else {
-    startDateObj = new Date(startDate);
+  // Invalid Date 체크 - 시작일
+  if (isNaN(start.getTime())) {
+    return {
+      isValid: false,
+      error: '시작일 형식이 올바르지 않습니다'
+    };
   }
 
-  if (endDate instanceof Date) {
-    endDateObj = endDate;
-  } else {
-    endDateObj = new Date(endDate);
+  // Invalid Date 체크 - 종료일
+  if (isNaN(end.getTime())) {
+    return {
+      isValid: false,
+      error: '종료일 형식이 올바르지 않습니다'
+    };
   }
 
-  // 유효한 날짜인지 확인
-  if (isNaN(startDateObj.getTime())) {
-    return { isValid: false, error: '유효하지 않은 시작일 형식입니다' };
+  // 시작일이 종료일보다 이후인지 체크
+  if (start.getTime() > end.getTime()) {
+    return {
+      isValid: false,
+      error: '시작일이 종료일보다 이후입니다'
+    };
   }
 
-  if (isNaN(endDateObj.getTime())) {
-    return { isValid: false, error: '유효하지 않은 종료일 형식입니다' };
-  }
+  // 100년 초과 체크
+  const millisecondsPerYear = 365.25 * 24 * 60 * 60 * 1000;
+  const yearsDiff = (end.getTime() - start.getTime()) / millisecondsPerYear;
 
-  // 날짜 비교
-  if (startDateObj > endDateObj) {
-    return { isValid: false, error: '시작일은 종료일보다 이전이어야 합니다' };
-  }
-
-  // 100년 이상 차이 체크
-  const yearsDiff = (endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
   if (yearsDiff > 100) {
-    return { isValid: true, warning: '날짜 범위가 100년을 초과합니다' };
+    return {
+      isValid: true,
+      warning: '날짜 범위가 100년을 초과합니다'
+    };
   }
 
-  return { isValid: true };
+  // 정상 케이스
+  return {
+    isValid: true
+  };
 }
 ```
 
-이 구현은:
-
-1. **null/undefined 처리**: 필수 입력값 검증
-2. **빈 문자열/공백 처리**: 유효하지 않은 입력 검증
-3. **Date 변환**: 문자열과 Date 객체 모두 처리
-4. **날짜 유효성 검증**: `isNaN(date.getTime())` 사용
-5. **날짜 비교**: 시작일 > 종료일 체크
-6. **100년 경고**: 날짜 차이 계산 및 경고 메시지
-
-모든 테스트를 통과시키는 최소한의 코드입니다.
-
 ---
 
-위의 코드를 개선해주세요.
+## 🎯 작업: 코드 리팩토링
 
-리팩토링 체크리스트:
+### 리팩토링 체크리스트:
 - [ ] 중복 제거 (DRY 원칙)
 - [ ] 명명 개선 (의도를 명확히)
 - [ ] 함수 분리 (단일 책임)
-- [ ] 매직 넘버/스트링 제거
+- [ ] 매직 넘버/스트링 → 상수로 추출
 - [ ] 복잡도 감소
 - [ ] TypeScript 타입 개선
-- [ ] 주석 추가 (필요시)
+- [ ] JSDoc 주석 추가
 
-출력 형식:
-````typescript
-// filepath: src/utils/[기능명].ts
+### 출력 형식:
 
-// 개선된 코드
-````
+**1단계: 개선 포인트 (간단히)**
+```markdown
+- 개선사항 1
+- 개선사항 2
+- 개선사항 3
+```
 
-**중요: 리팩토링 후에도 모든 테스트가 통과해야 합니다!**
+**2단계: 개선된 전체 코드**
+```typescript
+// filepath: src/utils/[실제파일명].ts
 
-개선 포인트를 설명하고 개선된 전체 코드를 제공하세요.
+// 전체 리팩토링된 코드를 작성하세요
+// 절대로 "..."로 생략하지 마세요!
+
+export interface ValidationResult {
+  isValid: boolean;
+  error?: string;
+  warning?: string;
+}
+
+// 상수 정의
+const ERROR_MESSAGES = {
+  // ...
+} as const;
+
+export function mainFunction(...): ReturnType {
+  // 전체 구현
+}
+
+// 헬퍼 함수들
+function helperFunction1(...) {
+  // 전체 구현
+}
+```
+
+## ⚠️ 중요 규칙:
+
+1. ✅ **filepath 주석 필수** (첫 줄)
+2. ✅ **전체 코드 작성** (생략 금지)
+3. ✅ **복사 후 바로 실행 가능**해야 함
+4. ✅ **모든 테스트 통과** 보장
+5. ❌ **"...existing code..." 절대 금지**
+
+**지금 바로 리팩토링된 전체 코드를 작성하세요!**

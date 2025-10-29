@@ -1,4 +1,15 @@
-당신은 TDD RED 단계 전문가입니다.
+# SYSTEM: 당신은 테스트 코드 생성 전문 AI입니다. 항상 즉시 테스트 코드를 작성합니다.
+
+## 🚨 CRITICAL INSTRUCTION
+
+**YOU MUST WRITE CODE IMMEDIATELY. NO PERMISSION REQUESTS. NO EXPLANATIONS.**
+
+당신의 역할:
+- ✅ 즉시 테스트 코드 작성
+- ❌ 구현 코드 작성 금지
+- ❌ 권한 요청 금지
+- ❌ 확인 질문 금지
+- ❌ 설명만 제공 금지
 
 ## 원본 명세
 
@@ -32,355 +43,336 @@
 - 1일 차이: 유효
 - 100년 이상 차이: 유효 (경고 메시지)
 
-## 테스트 설계 결과 (Step 2)
+## 테스트 설계
 
-완벽합니다! 프로젝트에서 이미 날짜 범위 검증 함수에 대한 테스트 케이스가 작성되어 있네요. 이를 바탕으로 체계적인 테스트 설계 문서를 작성하겠습니다.
+검증된 명세를 바탕으로 포괄적인 테스트 케이스를 설계하겠습니다.
 
-# 테스트 설계: 날짜 범위 검증 함수 (validateDateRange)
+## 테스트 스위트: 날짜 범위 검증 함수 (Date Range Validator)
 
-## 테스트 스위트: Date Range Validation
+### Unit Tests - 기본 동작
 
-이 테스트 설계는 AAA 패턴(Arrange-Act-Assert)을 따르며, Vitest 프레임워크를 사용합니다.  
-실제 구현은 `src/__tests__/unit/dateRangeValidation.spec.ts:1`에 있습니다.
-
----
-
-## 1. 기본 동작 테스트 (Basic Functionality)
-
-### 테스트 케이스 1.1
+#### 테스트 케이스 1
 - **이름**: should return valid when start date is before end date
 - **타입**: unit
 - **우선순위**: high
-- **Given**: 시작일이 '2024-01-01'이고 종료일이 '2024-12-31'인 경우
+- **Given**: startDate는 '2024-01-01', endDate는 '2024-12-31'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: true }` 를 반환해야 함
+- **Then**: `{ isValid: true }` 반환
 
-### 테스트 케이스 1.2
+#### 테스트 케이스 2
 - **이름**: should return valid when start date equals end date
 - **타입**: unit
 - **우선순위**: high
-- **Given**: 시작일과 종료일이 모두 '2024-06-15'로 동일한 경우
+- **Given**: startDate와 endDate가 모두 '2024-01-01'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: true }` 를 반환해야 함
+- **Then**: `{ isValid: true }` 반환
 
-### 테스트 케이스 1.3
+#### 테스트 케이스 3
 - **이름**: should return invalid when start date is after end date
 - **타입**: unit
 - **우선순위**: high
-- **Given**: 시작일이 '2024-12-31'이고 종료일이 '2024-01-01'인 경우
+- **Given**: startDate는 '2024-12-31', endDate는 '2024-01-01'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "시작일은 종료일보다 이전이어야 합니다" }` 를 반환해야 함
+- **Then**: `{ isValid: false, error: '시작일이 종료일보다 이후입니다' }` 반환
 
----
+### Unit Tests - 입력 형식
 
-## 2. 입력 형식 처리 테스트 (Input Format Handling)
-
-### 테스트 케이스 2.1
+#### 테스트 케이스 4
 - **이름**: should accept Date objects as input
 - **타입**: unit
 - **우선순위**: high
-- **Given**: Date 객체 형태의 시작일과 종료일이 주어진 경우
+- **Given**: startDate는 `new Date('2024-01-01')`, endDate는 `new Date('2024-12-31')`
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: Date 객체를 올바르게 처리하고 유효성 검증을 수행해야 함
+- **Then**: `{ isValid: true }` 반환
 
-### 테스트 케이스 2.2
+#### 테스트 케이스 5
 - **이름**: should accept ISO 8601 strings as input
 - **타입**: unit
 - **우선순위**: high
-- **Given**: ISO 8601 형식 문자열 ('2024-01-01T00:00:00Z') 이 주어진 경우
+- **Given**: startDate는 '2024-01-01T00:00:00Z', endDate는 '2024-12-31T23:59:59Z'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: ISO 8601 문자열을 올바르게 파싱하고 유효성 검증을 수행해야 함
+- **Then**: `{ isValid: true }` 반환
 
-### 테스트 케이스 2.3
-- **이름**: should accept mixed input types (Date and string)
+#### 테스트 케이스 6
+- **이름**: should accept mixed Date object and ISO string
 - **타입**: unit
 - **우선순위**: medium
-- **Given**: 시작일은 Date 객체, 종료일은 문자열로 주어진 경우
+- **Given**: startDate는 `new Date('2024-01-01')`, endDate는 '2024-12-31'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: 혼합된 입력 타입을 올바르게 처리해야 함
+- **Then**: `{ isValid: true }` 반환
 
----
+### Unit Tests - 에러 처리
 
-## 3. 에러 처리 테스트 (Error Handling)
-
-### 테스트 케이스 3.1
+#### 테스트 케이스 7
 - **이름**: should return error when start date is null
 - **타입**: unit
 - **우선순위**: high
-- **Given**: 시작일이 null인 경우
+- **Given**: startDate는 null, endDate는 '2024-12-31'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "시작일은 필수입니다" }` 를 반환해야 함
+- **Then**: `{ isValid: false, error: '시작일이 유효하지 않습니다' }` 반환
 
-### 테스트 케이스 3.2
+#### 테스트 케이스 8
+- **이름**: should return error when end date is null
+- **타입**: unit
+- **우선순위**: high
+- **Given**: startDate는 '2024-01-01', endDate는 null
+- **When**: validateDateRange 함수를 호출할 때
+- **Then**: `{ isValid: false, error: '종료일이 유효하지 않습니다' }` 반환
+
+#### 테스트 케이스 9
+- **이름**: should return error when start date is undefined
+- **타입**: unit
+- **우선순위**: high
+- **Given**: startDate는 undefined, endDate는 '2024-12-31'
+- **When**: validateDateRange 함수를 호출할 때
+- **Then**: `{ isValid: false, error: '시작일이 유효하지 않습니다' }` 반환
+
+#### 테스트 케이스 10
 - **이름**: should return error when end date is undefined
 - **타입**: unit
 - **우선순위**: high
-- **Given**: 종료일이 undefined인 경우
+- **Given**: startDate는 '2024-01-01', endDate는 undefined
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "종료일은 필수입니다" }` 를 반환해야 함
+- **Then**: `{ isValid: false, error: '종료일이 유효하지 않습니다' }` 반환
 
-### 테스트 케이스 3.3
-- **이름**: should return error when both dates are null
+#### 테스트 케이스 11
+- **이름**: should return error when start date has invalid format
 - **타입**: unit
 - **우선순위**: high
-- **Given**: 시작일과 종료일 모두 null인 경우
+- **Given**: startDate는 'invalid-date', endDate는 '2024-12-31'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "시작일은 필수입니다" }` 를 반환해야 함 (시작일 에러가 우선)
+- **Then**: `{ isValid: false, error: '시작일 형식이 올바르지 않습니다' }` 반환
 
-### 테스트 케이스 3.4
-- **이름**: should return error when start date format is invalid
+#### 테스트 케이스 12
+- **이름**: should return error when end date has invalid format
 - **타입**: unit
 - **우선순위**: high
-- **Given**: 시작일이 'invalid-date' 같은 잘못된 형식인 경우
+- **Given**: startDate는 '2024-01-01', endDate는 'not-a-date'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "유효하지 않은 시작일 형식입니다" }` 를 반환해야 함
+- **Then**: `{ isValid: false, error: '종료일 형식이 올바르지 않습니다' }` 반환
 
-### 테스트 케이스 3.5
-- **이름**: should return error when end date format is invalid
-- **타입**: unit
-- **우선순위**: high
-- **Given**: 종료일이 '2024/13/32' 같은 존재하지 않는 날짜인 경우
-- **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "유효하지 않은 종료일 형식입니다" }` 를 반환해야 함
-
-### 테스트 케이스 3.6
-- **이름**: should return error when date string is not ISO 8601 format
+#### 테스트 케이스 13
+- **이름**: should return error when both dates are invalid
 - **타입**: unit
 - **우선순위**: medium
-- **Given**: 날짜가 '01/01/2024' 같은 비표준 형식인 경우
+- **Given**: startDate는 null, endDate는 undefined
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "유효하지 않은..." }` 를 반환해야 함
+- **Then**: `{ isValid: false, error: '시작일이 유효하지 않습니다' }` 반환 (첫 번째 에러 우선)
 
-### 테스트 케이스 3.7
-- **이름**: should handle empty string input
-- **타입**: edge
-- **우선순위**: medium
-- **Given**: 시작일이 빈 문자열 ''인 경우
-- **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "유효하지 않은 시작일 형식입니다" }` 를 반환해야 함
+### Edge Cases - 경계값
 
-### 테스트 케이스 3.8
-- **이름**: should handle whitespace-only string input
-- **타입**: edge
-- **우선순위**: medium
-- **Given**: 종료일이 공백만 있는 문자열 '   '인 경우
-- **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "유효하지 않은 종료일 형식입니다" }` 를 반환해야 함
-
----
-
-## 4. 경계값 테스트 (Boundary Testing)
-
-### 테스트 케이스 4.1
+#### 테스트 케이스 14
 - **이름**: should return valid when dates differ by exactly 1 day
 - **타입**: edge
 - **우선순위**: high
-- **Given**: 시작일이 '2024-06-15'이고 종료일이 '2024-06-16'인 경우
+- **Given**: startDate는 '2024-01-01', endDate는 '2024-01-02'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: true }` 를 반환해야 함
+- **Then**: `{ isValid: true }` 반환
 
-### 테스트 케이스 4.2
-- **이름**: should return valid when dates differ by exactly 1 second
+#### 테스트 케이스 15
+- **이름**: should return valid with warning when dates differ by over 100 years
 - **타입**: edge
 - **우선순위**: medium
-- **Given**: 시작일이 '2024-06-15T12:00:00Z'이고 종료일이 '2024-06-15T12:00:01Z'인 경우
+- **Given**: startDate는 '1900-01-01', endDate는 '2024-12-31'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: true }` 를 반환해야 함
+- **Then**: `{ isValid: true, warning: '날짜 범위가 100년을 초과합니다' }` 반환
 
-### 테스트 케이스 4.3
-- **이름**: should return valid with warning when dates differ by more than 100 years
+#### 테스트 케이스 16
+- **이름**: should return valid when dates are exactly 100 years apart
 - **타입**: edge
 - **우선순위**: medium
-- **Given**: 시작일이 '1900-01-01'이고 종료일이 '2024-12-31'인 경우 (124년 차이)
+- **Given**: startDate는 '1924-01-01', endDate는 '2024-01-01'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: true, warning: "날짜 범위가 100년을 초과합니다" }` 를 반환해야 함
+- **Then**: `{ isValid: true }` 반환 (정확히 100년은 경고 없음)
 
-### 테스트 케이스 4.4
+#### 테스트 케이스 17
 - **이름**: should handle leap year dates correctly
 - **타입**: edge
-- **우선순위**: high
-- **Given**: 윤년의 2월 29일 ('2024-02-29')이 시작일인 경우
+- **우선순위**: medium
+- **Given**: startDate는 '2024-02-29', endDate는 '2024-03-01' (윤년)
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: 유효한 날짜로 처리하고 `{ isValid: true }` 를 반환해야 함
+- **Then**: `{ isValid: true }` 반환
 
-### 테스트 케이스 4.5
-- **이름**: should return error when using non-leap year Feb 29
+#### 테스트 케이스 18
+- **이름**: should return error for invalid leap year date
 - **타입**: edge
-- **우선순위**: high
-- **Given**: 평년의 2월 29일 ('2023-02-29')이 시작일인 경우
+- **우선순위**: medium
+- **Given**: startDate는 '2023-02-29', endDate는 '2023-03-01' (평년)
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "유효하지 않은 시작일 형식입니다" }` 를 반환해야 함
+- **Then**: `{ isValid: false, error: '시작일 형식이 올바르지 않습니다' }` 반환
 
-### 테스트 케이스 4.6
-- **이름**: should handle dates at Unix epoch
+#### 테스트 케이스 19
+- **이름**: should handle dates at year boundaries
 - **타입**: edge
 - **우선순위**: low
-- **Given**: 시작일이 Unix epoch ('1970-01-01T00:00:00Z')인 경우
+- **Given**: startDate는 '2023-12-31T23:59:59', endDate는 '2024-01-01T00:00:00'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: 정상적으로 처리하고 `{ isValid: true }` 를 반환해야 함
+- **Then**: `{ isValid: true }` 반환
 
-### 테스트 케이스 4.7
+#### 테스트 케이스 20
+- **이름**: should handle very old dates
+- **타입**: edge
+- **우선순위**: low
+- **Given**: startDate는 '1900-01-01', endDate는 '1900-12-31'
+- **When**: validateDateRange 함수를 호출할 때
+- **Then**: `{ isValid: true }` 반환
+
+#### 테스트 케이스 21
 - **이름**: should handle far future dates
 - **타입**: edge
 - **우선순위**: low
-- **Given**: 종료일이 '2999-12-31' 같은 먼 미래 날짜인 경우
+- **Given**: startDate는 '2100-01-01', endDate는 '2100-12-31'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: true, warning: "날짜 범위가 100년을 초과합니다" }` 를 반환해야 함
+- **Then**: `{ isValid: true }` 반환
 
-### 테스트 케이스 4.8
-- **이름**: should handle timezone differences correctly
+#### 테스트 케이스 22
+- **이름**: should handle same date with different time zones
 - **타입**: edge
 - **우선순위**: medium
-- **Given**: 시간대가 다른 날짜들 ('+09:00', 'Z')이 주어진 경우
+- **Given**: startDate는 '2024-01-01T00:00:00+09:00', endDate는 '2024-01-01T00:00:00Z'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: UTC 기준으로 정확하게 비교하고 올바른 결과를 반환해야 함
+- **Then**: `{ isValid: false, error: '시작일이 종료일보다 이후입니다' }` 반환 (또는 UTC 기준으로 비교)
 
----
+### Edge Cases - 특수 입력
 
-## 5. 특수 케이스 테스트 (Special Cases)
-
-### 테스트 케이스 5.1
-- **이름**: should handle millisecond precision
+#### 테스트 케이스 23
+- **이름**: should handle empty string input
 - **타입**: edge
-- **우선순위**: low
-- **Given**: 밀리초 단위 차이가 있는 날짜들 ('2024-06-15T12:00:00.000Z', '2024-06-15T12:00:00.001Z')
+- **우선순위**: medium
+- **Given**: startDate는 '', endDate는 '2024-12-31'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: 밀리초까지 정확하게 비교하고 `{ isValid: true }` 를 반환해야 함
+- **Then**: `{ isValid: false, error: '시작일 형식이 올바르지 않습니다' }` 반환
 
-### 테스트 케이스 5.2
-- **이름**: should return invalid when dates are reversed by 1 millisecond
+#### 테스트 케이스 24
+- **이름**: should handle numeric timestamp input
 - **타입**: edge
 - **우선순위**: low
-- **Given**: 시작일이 종료일보다 1밀리초 늦은 경우
+- **Given**: startDate는 1704067200000 (timestamp), endDate는 1735689599000
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: `{ isValid: false, error: "시작일은 종료일보다 이전이어야 합니다" }` 를 반환해야 함
+- **Then**: `{ isValid: false, error: '시작일 형식이 올바르지 않습니다' }` 반환 (명세에 명시되지 않은 형식)
 
-### 테스트 케이스 5.3
-- **이름**: should handle Date objects with time components
-- **타입**: unit
+#### 테스트 케이스 25
+- **이름**: should handle Invalid Date object
+- **타입**: edge
 - **우선순위**: medium
-- **Given**: 시간 컴포넌트가 포함된 Date 객체 (new Date(2024, 5, 15, 9, 30))
+- **Given**: startDate는 `new Date('invalid')`, endDate는 '2024-12-31'
 - **When**: validateDateRange 함수를 호출할 때
-- **Then**: 시간까지 포함하여 정확하게 비교해야 함
+- **Then**: `{ isValid: false, error: '시작일 형식이 올바르지 않습니다' }` 반환
 
----
+### Integration Tests
 
-## 6. 통합 테스트 (Integration Tests)
-
-### 테스트 케이스 6.1
-- **이름**: should validate multiple date ranges in sequence
-- **타입**: integration
-- **우선순위**: medium
-- **Given**: 여러 개의 연속된 날짜 범위가 주어진 경우
-- **When**: 각 범위에 대해 validateDateRange 함수를 순차적으로 호출할 때
-- **Then**: 모든 범위가 독립적으로 정확하게 검증되어야 함
-
-### 테스트 케이스 6.2
-- **이름**: should maintain consistency across different input formats
+#### 테스트 케이스 26
+- **이름**: should integrate with date picker component
 - **타입**: integration
 - **우선순위**: high
-- **Given**: 동일한 날짜를 문자열과 Date 객체로 각각 표현한 경우
-- **When**: 두 형식으로 validateDateRange 함수를 호출할 때
-- **Then**: 두 결과가 동일해야 함 (일관성 보장)
+- **Given**: 사용자가 날짜 선택 컴포넌트에서 시작일과 종료일을 선택
+- **When**: validateDateRange가 선택된 값으로 호출될 때
+- **Then**: 컴포넌트에 검증 결과가 표시됨
 
-### 테스트 케이스 6.3
-- **이름**: should handle rapid successive calls without side effects
+#### 테스트 케이스 27
+- **이름**: should integrate with form validation
+- **타입**: integration
+- **우선순위**: high
+- **Given**: 폼에 날짜 범위 입력 필드가 있고 검증 로직이 연결됨
+- **When**: 사용자가 잘못된 날짜 범위를 입력하고 제출할 때
+- **Then**: 폼 제출이 차단되고 에러 메시지가 표시됨
+
+#### 테스트 케이스 28
+- **이름**: should handle sequential validation calls
 - **타입**: integration
 - **우선순위**: medium
-- **Given**: 동일한 입력으로 함수를 100회 연속 호출하는 경우
-- **When**: 각 호출이 빠르게 연속적으로 실행될 때
-- **Then**: 모든 호출이 동일한 결과를 반환해야 함 (상태 독립성 보장)
+- **Given**: 여러 날짜 범위를 순차적으로 검증해야 하는 상황
+- **When**: validateDateRange가 여러 번 연속으로 호출될 때
+- **Then**: 각 호출이 독립적으로 올바른 결과를 반환
 
 ---
 
-## 7. 성능 테스트 (Performance Tests)
+## 테스트 구현 가이드
 
-### 테스트 케이스 7.1
-- **이름**: should execute within acceptable time for valid inputs
-- **타입**: performance
-- **우선순위**: medium
-- **Given**: 유효한 입력이 주어진 경우
-- **When**: validateDateRange 함수를 호출할 때
-- **Then**: 10ms 이내에 완료되어야 함
-
-### 테스트 케이스 7.2
-- **이름**: should handle large batch processing efficiently
-- **타입**: performance
-- **우선순위**: low
-- **Given**: 10,000개의 날짜 범위가 주어진 경우
-- **When**: 모든 범위를 순차적으로 검증할 때
-- **Then**: 1초 이내에 모든 검증이 완료되어야 함
-
----
-
-## 테스트 커버리지 요구사항
-
-- **라인 커버리지**: 95% 이상
-- **브랜치 커버리지**: 90% 이상
-- **함수 커버리지**: 100%
-
-## 테스트 실행 방법
-
-```bash
-# 전체 테스트 실행
-pnpm test
-
-# UI 모드로 테스트 실행
-pnpm test:ui
-
-# 커버리지 리포트 생성
-pnpm test:coverage
-
-# 특정 파일만 테스트
-pnpm test dateRangeValidation
+### 테스트 파일 구조
+```
+src/__tests__/
+  ├── unit/
+  │   ├── validateDateRange.test.ts
+  │   └── dateParser.test.ts
+  ├── integration/
+  │   └── dateRangeForm.test.tsx
+  └── edge-cases/
+      └── dateRangeBoundaries.test.ts
 ```
 
-## 요약
+### 우선순위별 실행 순서
+1. **High 우선순위** (18개): 핵심 기능과 주요 에러 처리
+2. **Medium 우선순위** (8개): 입력 형식 변형과 경계값
+3. **Low 우선순위** (2개): 특수 케이스와 확장 기능
 
-이 테스트 설계는 총 **26개의 테스트 케이스**로 구성되며, 다음을 보장합니다:
+### 테스트 커버리지 목표
+- 라인 커버리지: 100%
+- 브랜치 커버리지: 100%
+- 함수 커버리지: 100%
 
-- **기능 정확성**: 모든 요구사항이 충족됨
-- **에러 처리**: 모든 예외 상황이 적절히 처리됨
-- **경계값 안전성**: 엣지 케이스가 모두 검증됨
-- **일관성**: 다양한 입력 형식에서 일관된 동작
-- **성능**: 개별 호출 및 대량 처리 성능 보장
-- **독립성**: 각 테스트가 독립적으로 실행 가능
-
-위의 테스트 설계는 프로젝트의 기존 테스트 구조(`src/__tests__/unit/dateRangeValidation.spec.ts`)를 바탕으로 작성되었으며, Vitest와 @testing-library의 모범 사례를 따릅니다.
+이 테스트 케이스 설계를 바탕으로 실제 테스트 코드를 작성하시겠습니까?
 
 ---
 
-위의 테스트 설계를 바탕으로 **완전한 Vitest 테스트 코드**를 작성해주세요.
+## TASK: Write Vitest Test Code
 
-**중요: 반드시 실행 가능한 TypeScript 코드만 제공하세요!**
+### Requirements:
+- Vitest framework
+- TypeScript
+- AAA pattern
+- 15+ test cases
+- All edge cases
+- Ready to run
 
-출력 형식:
+### Output Format:
+
+**START YOUR RESPONSE WITH CODE BLOCK. NO TEXT BEFORE CODE.**
+
 ```typescript
-// filepath: src/__tests__/unit/[기능명].spec.ts
-import { describe, it, expect } from 'vitest';
-import { functionName } from '../../utils/[파일명]';
+// filepath: src/__tests__/unit/[name].spec.ts
 
-describe('테스트 스위트', () => {
-  describe('카테고리', () => {
-    it('should ...', () => {
+import { describe, it, expect } from 'vitest';
+import { functionName } from '../../utils/fileName';
+
+describe('Feature Name', () => {
+  describe('Normal Cases', () => {
+    it('should work with valid input', () => {
       // Arrange
-      const input = ...;
+      const input = 'test';
       
       // Act
       const result = functionName(input);
       
       // Assert
-      expect(result).toBe(...);
+      expect(result.isValid).toBe(true);
+    });
+  });
+
+  describe('Error Cases', () => {
+    it('should handle null', () => {
+      // Arrange
+      const input = null;
+      
+      // Act
+      const result = functionName(input);
+      
+      // Assert
+      expect(result.isValid).toBe(false);
     });
   });
 });
 ```
 
-요구사항:
-- Vitest 프레임워크
-- TypeScript
-- AAA 패턴
-- 최소 10개 이상의 테스트
-- 모든 엣지 케이스 포함
+### FORBIDDEN:
+- ❌ "I need permission to..."
+- ❌ "Please approve..."
+- ❌ "..." or "existing code"
 
-**주의: 설명이나 구조 안내가 아닌, 복사해서 바로 실행 가능한 코드만 작성하세요.**
+### MANDATORY:
+- ✅ Start with ```typescript
+- ✅ Include // filepath: comment
+- ✅ Write complete code
+- ✅ 15+ test cases
+
+## 🚀 BEGIN NOW
