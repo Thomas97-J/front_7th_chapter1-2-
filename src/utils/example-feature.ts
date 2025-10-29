@@ -5,77 +5,100 @@ export interface ValidationResult {
 }
 
 export function validateDateRange(
-  startDate: Date | string,
-  endDate: Date | string
+  startDate: Date | string | null | undefined,
+  endDate: Date | string | null | undefined
 ): ValidationResult {
-  // 1. null/undefined 체크
-  if (startDate == null && endDate == null) {
-    return { isValid: false, error: '시작일과 종료일은 필수입니다' };
-  }
-  if (startDate == null) {
-    return { isValid: false, error: '시작일은 필수입니다' };
-  }
-  if (endDate == null) {
-    return { isValid: false, error: '종료일은 필수입니다' };
+  // 1. Null/undefined checks
+  if (!startDate && !endDate) {
+    return {
+      isValid: false,
+      error: '시작일과 종료일은 필수입니다',
+    };
   }
 
-  // 2. 빈 문자열 체크
-  if (startDate === '' || endDate === '') {
-    return { isValid: false, error: '날짜는 필수입니다' };
+  if (!startDate) {
+    return {
+      isValid: false,
+      error: '시작일은 필수입니다',
+    };
   }
 
-  // 3. 문자열을 Date 객체로 변환
-  let start: Date;
-  let end: Date;
-
-  if (typeof startDate === 'string') {
-    const trimmed = startDate.trim();
-    if (trimmed === '') {
-      return { isValid: false, error: '유효하지 않은 날짜 형식입니다' };
-    }
-    // ISO 8601 형식 검증 (간단한 정규식)
-    if (!/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
-      return { isValid: false, error: '유효하지 않은 날짜 형식입니다' };
-    }
-    start = new Date(startDate);
-  } else {
-    start = startDate;
+  if (!endDate) {
+    return {
+      isValid: false,
+      error: '종료일은 필수입니다',
+    };
   }
 
-  if (typeof endDate === 'string') {
-    const trimmed = endDate.trim();
-    if (trimmed === '') {
-      return { isValid: false, error: '유효하지 않은 날짜 형식입니다' };
-    }
-    if (!/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
-      return { isValid: false, error: '유효하지 않은 날짜 형식입니다' };
-    }
-    end = new Date(endDate);
-  } else {
-    end = endDate;
+  // 2. Parse dates
+  const parsedStartDate = parseDate(startDate);
+  const parsedEndDate = parseDate(endDate);
+
+  // 3. Validate parsed dates
+  if (!parsedStartDate) {
+    return {
+      isValid: false,
+      error: '시작일 형식이 올바르지 않습니다',
+    };
   }
 
-  // 4. Invalid Date 체크
-  if (isNaN(start.getTime())) {
-    return { isValid: false, error: '유효하지 않은 날짜입니다' };
-  }
-  if (isNaN(end.getTime())) {
-    return { isValid: false, error: '유효하지 않은 날짜입니다' };
-  }
-
-  // 5. 날짜 범위 검증
-  if (start.getTime() > end.getTime()) {
-    return { isValid: false, error: '시작일은 종료일보다 이전이어야 합니다' };
+  if (!parsedEndDate) {
+    return {
+      isValid: false,
+      error: '종료일 형식이 올바르지 않습니다',
+    };
   }
 
-  // 6. 100년 이상 차이 경고
+  if (!isValidDate(parsedStartDate)) {
+    return {
+      isValid: false,
+      error: '시작일 형식이 올바르지 않습니다',
+    };
+  }
+
+  if (!isValidDate(parsedEndDate)) {
+    return {
+      isValid: false,
+      error: '종료일 형식이 올바르지 않습니다',
+    };
+  }
+
+  // 4. Compare dates
+  if (parsedStartDate.getTime() > parsedEndDate.getTime()) {
+    return {
+      isValid: false,
+      error: '시작일은 종료일보다 이전이어야 합니다',
+    };
+  }
+
+  // 5. Check for 100+ year difference (warning)
   const millisecondsPerYear = 365.25 * 24 * 60 * 60 * 1000;
-  const yearsDiff = (end.getTime() - start.getTime()) / millisecondsPerYear;
+  const yearsDifference =
+    (parsedEndDate.getTime() - parsedStartDate.getTime()) / millisecondsPerYear;
 
-  if (yearsDiff >= 100) {
-    return { isValid: true, warning: '날짜 범위가 100년을 초과합니다' };
+  if (yearsDifference >= 100) {
+    return {
+      isValid: true,
+      warning: '날짜 범위가 100년 이상입니다',
+    };
   }
 
-  // 7. 유효한 경우
   return { isValid: true };
+}
+
+function parseDate(date: Date | string): Date | null {
+  if (date instanceof Date) {
+    return date;
+  }
+
+  if (typeof date === 'string') {
+    const parsed = new Date(date);
+    return parsed;
+  }
+
+  return null;
+}
+
+function isValidDate(date: Date): boolean {
+  return date instanceof Date && !isNaN(date.getTime());
 }
