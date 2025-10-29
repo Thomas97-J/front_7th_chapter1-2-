@@ -8,7 +8,7 @@ export function validateDateRange(
   startDate: Date | string | null | undefined,
   endDate: Date | string | null | undefined
 ): ValidationResult {
-  // 1. Null/undefined checks
+  // null/undefined check
   if (!startDate && !endDate) {
     return {
       isValid: false,
@@ -30,11 +30,11 @@ export function validateDateRange(
     };
   }
 
-  // 2. Parse dates
+  // Parse dates
   const parsedStartDate = parseDate(startDate);
   const parsedEndDate = parseDate(endDate);
 
-  // 3. Validate parsed dates
+  // Validate parsed dates
   if (!parsedStartDate) {
     return {
       isValid: false,
@@ -63,7 +63,7 @@ export function validateDateRange(
     };
   }
 
-  // 4. Date comparison
+  // Compare dates
   if (parsedStartDate.getTime() > parsedEndDate.getTime()) {
     return {
       isValid: false,
@@ -71,12 +71,11 @@ export function validateDateRange(
     };
   }
 
-  // 5. Check for 100-year difference warning
-  const millisecondsPerYear = 365.25 * 24 * 60 * 60 * 1000;
-  const yearsDifference =
-    (parsedEndDate.getTime() - parsedStartDate.getTime()) / millisecondsPerYear;
+  // Check for 100-year difference
+  const diffInYears =
+    (parsedEndDate.getTime() - parsedStartDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
 
-  if (yearsDifference > 100) {
+  if (diffInYears > 100) {
     return {
       isValid: true,
       warning: '날짜 범위가 100년을 초과합니다',
@@ -86,18 +85,21 @@ export function validateDateRange(
   return { isValid: true };
 }
 
-// Helper functions
 function parseDate(date: Date | string): Date | null {
-  if (date instanceof Date) {
-    return date;
-  }
+  try {
+    if (date instanceof Date) {
+      return date;
+    }
 
-  if (typeof date === 'string') {
-    const parsed = new Date(date);
-    return parsed;
-  }
+    if (typeof date === 'string') {
+      const parsed = new Date(date);
+      return parsed;
+    }
 
-  return null;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function isValidDate(date: Date): boolean {
