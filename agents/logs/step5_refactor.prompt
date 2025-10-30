@@ -241,45 +241,46 @@ export function validateDateRange(
   if (!parsedStartDate) {
     return {
       isValid: false,
-      error: '시작일 형식이 올바르지 않습니다',
+      error: '유효하지 않은 시작일 형식입니다',
     };
   }
 
   if (!parsedEndDate) {
     return {
       isValid: false,
-      error: '종료일 형식이 올바르지 않습니다',
+      error: '유효하지 않은 종료일 형식입니다',
     };
   }
 
+  // 4. Check if dates are valid
   if (!isValidDate(parsedStartDate)) {
     return {
       isValid: false,
-      error: '시작일 형식이 올바르지 않습니다',
+      error: '유효하지 않은 시작일 형식입니다',
     };
   }
 
   if (!isValidDate(parsedEndDate)) {
     return {
       isValid: false,
-      error: '종료일 형식이 올바르지 않습니다',
+      error: '유효하지 않은 종료일 형식입니다',
     };
   }
 
-  // 4. Date comparison
-  if (parsedStartDate.getTime() > parsedEndDate.getTime()) {
+  // 5. Compare dates
+  if (parsedStartDate > parsedEndDate) {
     return {
       isValid: false,
       error: '시작일은 종료일보다 이전이어야 합니다',
     };
   }
 
-  // 5. Check for 100-year difference warning
+  // 6. Check for 100-year warning
   const millisecondsPerYear = 365.25 * 24 * 60 * 60 * 1000;
-  const yearsDifference =
+  const differenceInYears =
     (parsedEndDate.getTime() - parsedStartDate.getTime()) / millisecondsPerYear;
 
-  if (yearsDifference > 100) {
+  if (differenceInYears > 100) {
     return {
       isValid: true,
       warning: '날짜 범위가 100년을 초과합니다',
@@ -374,14 +375,6 @@ function helperFunction2(...) {
 3. **Ready to copy & paste** and run
 4. **Must pass ALL tests** (same behavior)
 5. **NO "...existing code..."** comments
-
-## 🚫 FORBIDDEN
-
-Do NOT respond with:
-- "리팩토링이 완료되었습니다" without code
-- "개선된 코드는 다음과 같습니다" without showing it
-- Only explanations
-- Partial code with "..."
 
 ## ✅ REQUIRED
 
