@@ -28,8 +28,10 @@ export const useEventOperations = (editing: boolean, onSave?: () => void) => {
     options?: { recurringEditAll?: boolean; repeatId?: string }
   ) => {
     try {
+      console.log('saveEvent', editing, options?.recurringEditAll, eventData.repeat?.id);
       if (editing && options?.recurringEditAll && eventData.repeat?.id) {
         // 반복 일정 전체 수정
+
         const response = await fetch(`/api/recurring-events/${options?.repeatId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },

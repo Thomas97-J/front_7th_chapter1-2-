@@ -110,7 +110,7 @@ function App() {
 
   const [isDeleteRecurringDialogOpen, setIsDeleteRecurringDialogOpen] = useState(false);
   const [pendingDeleteEvent, setPendingDeleteEvent] = useState<Event | null>(null);
-
+  const [currentRepeatId, setCurrentRepeatId] = useState('');
   const { enqueueSnackbar } = useSnackbar();
 
   const addOrUpdateEvent = async () => {
@@ -165,6 +165,7 @@ function App() {
         type: isRepeating ? repeatType : 'none',
         interval: repeatInterval,
         endDate: repeatEndDate || undefined,
+        id: editingEvent?.repeat.id,
       },
       notificationTime,
       icon: isRepeating ? '🔄' : undefined,
@@ -621,7 +622,15 @@ function App() {
                     </Typography>
                   </Stack>
                   <Stack>
-                    <IconButton aria-label="Edit event" onClick={() => editEvent(event)}>
+                    <IconButton
+                      aria-label="Edit event"
+                      onClick={() => {
+                        if (event?.repeat?.id) {
+                          setCurrentRepeatId(event.repeat.id);
+                        }
+                        editEvent(event);
+                      }}
+                    >
                       <Edit />
                     </IconButton>
                     <IconButton aria-label="Delete event" onClick={() => handleDeleteEvent(event)}>
@@ -717,7 +726,8 @@ function App() {
           <Button
             onClick={async () => {
               setIsEditRecurringDialogOpen(false);
-              if (pendingEditEventData && editingEvent?.repeat?.id) {
+              console.log('1', pendingEditEventData, editingEvent);
+              if (pendingEditEventData && currentRepeatId) {
                 // 반복 일정 전체 수정: icon을 '🔄'로 유지
                 const recurringEvent = {
                   ...pendingEditEventData,
@@ -726,7 +736,7 @@ function App() {
                 // 반복 시리즈 전체 이벤트를 서버에서 수정
                 await saveEvent(recurringEvent, {
                   recurringEditAll: true,
-                  repeatId: editingEvent?.repeat?.id,
+                  repeatId: currentRepeatId,
                 });
                 resetForm();
               }
