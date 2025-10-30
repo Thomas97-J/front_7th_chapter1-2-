@@ -93,8 +93,9 @@ function App() {
     editEvent,
   } = useEventForm();
 
-  const { events, saveEvent, deleteEvent } = useEventOperations(Boolean(editingEvent), () =>
-    setEditingEvent(null)
+  const { events, saveEvent, deleteEvent, deleteRecurringEvents } = useEventOperations(
+    Boolean(editingEvent),
+    () => setEditingEvent(null)
   );
 
   const { notifications, notifiedEvents, setNotifications } = useNotifications(events);
@@ -106,6 +107,9 @@ function App() {
 
   const [isEditRecurringDialogOpen, setIsEditRecurringDialogOpen] = useState(false);
   const [pendingEditEventData, setPendingEditEventData] = useState<Event | EventForm | null>(null);
+
+  const [isDeleteRecurringDialogOpen, setIsDeleteRecurringDialogOpen] = useState(false);
+  const [pendingDeleteEvent, setPendingDeleteEvent] = useState<Event | null>(null);
 
   const { enqueueSnackbar } = useSnackbar();
 
@@ -172,6 +176,15 @@ function App() {
     }
     await saveEvent(eventData);
     resetForm();
+  };
+
+  const handleDeleteEvent = (event: Event) => {
+    if (event.repeat?.type !== 'none' && event.repeat?.id) {
+      setPendingDeleteEvent(event);
+      setIsDeleteRecurringDialogOpen(true);
+    } else {
+      deleteEvent(event.id);
+    }
   };
 
   const renderWeekView = () => {
@@ -611,7 +624,7 @@ function App() {
                     <IconButton aria-label="Edit event" onClick={() => editEvent(event)}>
                       <Edit />
                     </IconButton>
-                    <IconButton aria-label="Delete event" onClick={() => deleteEvent(event.id)}>
+                    <IconButton aria-label="Delete event" onClick={() => handleDeleteEvent(event)}>
                       <Delete />
                     </IconButton>
                   </Stack>
@@ -713,6 +726,48 @@ function App() {
                 // 반복 시리즈 전체 이벤트를 서버에서 수정
                 await saveEvent(recurringEvent, { recurringEditAll: true });
                 resetForm();
+              }
+            }}
+            color="error"
+          >
+            아니오
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={isDeleteRecurringDialogOpen}
+        onClose={() => setIsDeleteRecurringDialogOpen(false)}
+      >
+        <DialogTitle>반복 일정 삭제</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            해당 일정은 반복 일정입니다.
+            <br />
+            <b>해당 일정만 삭제하시겠어요?</b>
+            <br />
+            '예'를 누르면 단일 일정만 삭제됩니다.
+            <br />
+            '아니오'를 누르면 반복 일정 전체가 삭제됩니다.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setIsDeleteRecurringDialogOpen(false);
+              if (pendingDeleteEvent) {
+                deleteEvent(pendingDeleteEvent.id);
+              }
+            }}
+            color="primary"
+          >
+            예
+          </Button>
+          <Button
+            onClick={async () => {
+              setIsDeleteRecurringDialogOpen(false);
+              if (pendingDeleteEvent?.repeat?.id) {
+                await deleteRecurringEvents(pendingDeleteEvent.repeat.id);
               }
             }}
             color="error"

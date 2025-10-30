@@ -160,6 +160,20 @@ export const useEventOperations = (editing: boolean, onSave?: () => void) => {
     }
   };
 
+  const deleteRecurringEvents = async (repeatId: string) => {
+    try {
+      const response = await fetch(`/api/recurring-events/${repeatId}`, { method: 'DELETE' });
+      if (!response.ok && response.status !== 204) {
+        throw new Error('Failed to delete recurring events');
+      }
+      await fetchEvents();
+      enqueueSnackbar('반복 일정 전체가 삭제되었습니다.', { variant: 'info' });
+    } catch (error) {
+      console.error('Error deleting recurring events:', error);
+      enqueueSnackbar('반복 일정 전체 삭제 실패', { variant: 'error' });
+    }
+  };
+
   async function init() {
     await fetchEvents();
     enqueueSnackbar('일정 로딩 완료!', { variant: 'info' });
@@ -170,5 +184,5 @@ export const useEventOperations = (editing: boolean, onSave?: () => void) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { events, fetchEvents, saveEvent, deleteEvent };
+  return { events, fetchEvents, saveEvent, deleteEvent, deleteRecurringEvents };
 };
