@@ -63,6 +63,7 @@ export function generateRecurringDates(
       break;
   }
 
+  console.log('result:', result);
   return result;
 }
 
@@ -71,10 +72,9 @@ export function generateRecurringDates(
  */
 function generateDailyDates(baseDate: Date, count: number, result: string[]): void {
   const current = new Date(baseDate);
-
   for (let i = 0; i < count; i++) {
+    result.push(formatDate(current)); // 시작일 포함
     current.setDate(current.getDate() + 1);
-    result.push(formatDate(current));
   }
 }
 
@@ -83,10 +83,9 @@ function generateDailyDates(baseDate: Date, count: number, result: string[]): vo
  */
 function generateWeeklyDates(baseDate: Date, count: number, result: string[]): void {
   const current = new Date(baseDate);
-
   for (let i = 0; i < count; i++) {
+    result.push(formatDate(current)); // 시작일 포함
     current.setDate(current.getDate() + 7);
-    result.push(formatDate(current));
   }
 }
 
@@ -105,25 +104,18 @@ function generateMonthlyDates(
   let currentMonth = startMonth;
   let generated = 0;
 
-  // Start checking from next month
-  currentMonth++;
-
-  // Search for valid dates
+  // 첫 달(시작월)부터 체크
   while (generated < count) {
-    // Handle year rollover
-    if (currentMonth > 11) {
-      currentMonth = 0;
-      currentYear++;
-    }
-
-    // Check if this month has the target day
     if (isValidDate(currentYear, currentMonth, startDay)) {
       const date = new Date(currentYear, currentMonth, startDay);
       result.push(formatDate(date));
       generated++;
     }
-
     currentMonth++;
+    if (currentMonth > 11) {
+      currentMonth = 0;
+      currentYear++;
+    }
   }
 }
 
@@ -141,22 +133,16 @@ function generateYearlyDates(
   let currentYear = startYear;
   let generated = 0;
 
-  // Start checking from next year
-  currentYear++;
-
-  // Search for valid dates
+  // 첫 해(시작년도)부터 체크
   while (generated < count) {
-    // Check if this year has the target date
     if (isValidDate(currentYear, startMonth, startDay)) {
       const date = new Date(currentYear, startMonth, startDay);
       result.push(formatDate(date));
       generated++;
     }
-
     currentYear++;
   }
 }
-
 /**
  * Checks if a date is valid
  *
