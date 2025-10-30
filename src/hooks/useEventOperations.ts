@@ -1,5 +1,6 @@
 import { useSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid'; // 상단에 추가
 
 import { Event, EventForm } from '../types';
 import { generateRecurringDates } from '../utils/scheduleRecurringRule';
@@ -22,8 +23,25 @@ export const useEventOperations = (editing: boolean, onSave?: () => void) => {
     }
   };
 
-  const saveEvent = async (eventData: Event | EventForm) => {
+  const saveEvent = async (
+    eventData: Event | EventForm,
+    options?: { recurringEditAll?: boolean }
+  ) => {
     try {
+      if (editing && options?.recurringEditAll && eventData.repeat?.id) {
+        // 반복 일정 전체 수정
+        const response = await fetch(`/api/recurring-events/${eventData.repeat.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(eventData),
+        });
+        if (!response.ok) throw new Error('Failed to update recurring events');
+        await fetchEvents();
+        onSave?.();
+        enqueueSnackbar('반복 일정 전체가 수정되었습니다.', { variant: 'success' });
+        return;
+      }
+
       if (!editing && eventData.repeat.type !== 'none') {
         // endDate가 있으면 개수 계산, 없으면 기본 999
         let count = 999; // 기본값
@@ -68,13 +86,23 @@ export const useEventOperations = (editing: boolean, onSave?: () => void) => {
           const endDate = new Date(eventData.repeat.endDate);
           filteredDates = recurringDates.filter((date) => new Date(date) <= endDate);
         }
+        const repeatId = uuidv4();
 
         // 각 날짜마다 이벤트 생성
+
         for (const date of filteredDates) {
           await fetch('/api/events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...eventData, date, icon: '🔄' }),
+            body: JSON.stringify({
+              ...eventData,
+              date,
+              icon: '🔄',
+              repeat: {
+                ...eventData.repeat,
+                id: repeatId, // 모든 반복 이벤트에 동일한 repeat.id 할당
+              },
+            }),
           });
         }
 

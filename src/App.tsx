@@ -104,6 +104,9 @@ function App() {
   const [isOverlapDialogOpen, setIsOverlapDialogOpen] = useState(false);
   const [overlappingEvents, setOverlappingEvents] = useState<Event[]>([]);
 
+  const [isEditRecurringDialogOpen, setIsEditRecurringDialogOpen] = useState(false);
+  const [pendingEditEventData, setPendingEditEventData] = useState<Event | EventForm | null>(null);
+
   const { enqueueSnackbar } = useSnackbar();
 
   const addOrUpdateEvent = async () => {
@@ -142,6 +145,33 @@ function App() {
       await saveEvent(eventData);
       resetForm();
     }
+  };
+
+  const handleEditEventSubmit = async () => {
+    const eventData: Event | EventForm = {
+      id: editingEvent ? editingEvent.id : undefined,
+      title,
+      date,
+      startTime,
+      endTime,
+      description,
+      location,
+      category,
+      repeat: {
+        type: isRepeating ? repeatType : 'none',
+        interval: repeatInterval,
+        endDate: repeatEndDate || undefined,
+      },
+      notificationTime,
+      icon: isRepeating ? '🔄' : undefined,
+    };
+    if (editingEvent && editingEvent.repeat?.type !== 'none') {
+      setPendingEditEventData(eventData);
+      setIsEditRecurringDialogOpen(true);
+      return;
+    }
+    await saveEvent(eventData);
+    resetForm();
   };
 
   const renderWeekView = () => {
@@ -205,7 +235,7 @@ function App() {
                                 noWrap
                                 sx={{ fontSize: '0.75rem', lineHeight: 1.2 }}
                               >
-                                {event.icon}
+                                {event.repeat.type !== 'none' && event.icon}
                                 {event.title}
                               </Typography>
                             </Stack>
@@ -293,7 +323,7 @@ function App() {
                                       noWrap
                                       sx={{ fontSize: '0.75rem', lineHeight: 1.2 }}
                                     >
-                                      {event.icon}
+                                      {event.repeat.type !== 'none' && event.icon}
                                       {event.title}
                                     </Typography>
                                   </Stack>
@@ -480,7 +510,7 @@ function App() {
 
           <Button
             data-testid="event-submit-button"
-            onClick={addOrUpdateEvent}
+            onClick={editingEvent ? handleEditEventSubmit : addOrUpdateEvent}
             variant="contained"
             color="primary"
           >
@@ -546,7 +576,7 @@ function App() {
                         fontWeight={notifiedEvents.includes(event.id) ? 'bold' : 'normal'}
                         color={notifiedEvents.includes(event.id) ? 'error' : 'inherit'}
                       >
-                        {event.icon}
+                        {event.repeat.type !== 'none' && event.icon}
                         {event.title}
                       </Typography>
                     </Stack>
@@ -630,6 +660,64 @@ function App() {
             }}
           >
             계속 진행
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={isEditRecurringDialogOpen} onClose={() => setIsEditRecurringDialogOpen(false)}>
+        <DialogTitle>반복 일정 수정</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            해당 일정은 반복 일정입니다.
+            <br />
+            <b>해당 일정만 수정하시겠어요?</b>
+            <br />
+            '예'를 누르면 단일 일정으로 변경됩니다.
+            <br />
+            '아니오'를 누르면 전체 반복 일정이 수정됩니다.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={async () => {
+              setIsEditRecurringDialogOpen(false);
+              if (pendingEditEventData) {
+                // 단일 일정으로 변경: repeat을 'none'으로 바꾸고, PUT으로 수정
+                const singleEvent = {
+                  ...pendingEditEventData,
+                  repeat: { type: 'none', interval: 1 },
+                  icon: undefined,
+                };
+                await fetch(`/api/events/${singleEvent.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(singleEvent),
+                });
+                await saveEvent(singleEvent);
+                resetForm();
+              }
+            }}
+            color="primary"
+          >
+            예
+          </Button>
+          <Button
+            onClick={async () => {
+              setIsEditRecurringDialogOpen(false);
+              if (pendingEditEventData && editingEvent?.repeat?.id) {
+                // 반복 일정 전체 수정: icon을 '🔄'로 유지
+                const recurringEvent = {
+                  ...pendingEditEventData,
+                  icon: '🔄',
+                };
+                // 반복 시리즈 전체 이벤트를 서버에서 수정
+                await saveEvent(recurringEvent, { recurringEditAll: true });
+                resetForm();
+              }
+            }}
+            color="error"
+          >
+            아니오
           </Button>
         </DialogActions>
       </Dialog>
