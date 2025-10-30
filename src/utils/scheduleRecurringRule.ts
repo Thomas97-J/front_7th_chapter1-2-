@@ -104,7 +104,41 @@ function generateMonthlyDates(
   let currentMonth = startMonth;
   let generated = 0;
 
-  // 첫 달(시작월)부터 체크
+  // 31일 반복: 31일이 있는 달에만 생성
+  if (startDay === 31) {
+    while (generated < count) {
+      if (isValidDate(currentYear, currentMonth, 31)) {
+        const date = new Date(currentYear, currentMonth, 31);
+        result.push(formatDate(date));
+        generated++;
+      }
+      currentMonth++;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      }
+    }
+    return;
+  }
+
+  // 30일 반복: 30일이 있는 달에만 생성
+  if (startDay === 30) {
+    while (generated < count) {
+      if (isValidDate(currentYear, currentMonth, 30)) {
+        const date = new Date(currentYear, currentMonth, 30);
+        result.push(formatDate(date));
+        generated++;
+      }
+      currentMonth++;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      }
+    }
+    return;
+  }
+
+  // 일반 월 반복
   while (generated < count) {
     if (isValidDate(currentYear, currentMonth, startDay)) {
       const date = new Date(currentYear, currentMonth, startDay);
@@ -133,7 +167,20 @@ function generateYearlyDates(
   let currentYear = startYear;
   let generated = 0;
 
-  // 첫 해(시작년도)부터 체크
+  // 윤년 2월 29일 반복: 윤년일 때만 생성
+  if (startMonth === 1 && startDay === 29) {
+    while (generated < count) {
+      if (isLeapYear(currentYear) && isValidDate(currentYear, 1, 29)) {
+        const date = new Date(currentYear, 1, 29);
+        result.push(formatDate(date));
+        generated++;
+      }
+      currentYear++;
+    }
+    return;
+  }
+
+  // 일반 연 반복
   while (generated < count) {
     if (isValidDate(currentYear, startMonth, startDay)) {
       const date = new Date(currentYear, startMonth, startDay);
@@ -143,6 +190,7 @@ function generateYearlyDates(
     currentYear++;
   }
 }
+
 /**
  * Checks if a date is valid
  *
