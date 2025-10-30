@@ -173,7 +173,7 @@ if [ ! -f "$SPEC_FILE" ]; then
     exit 1
 fi
 
-FEATURE_NAME=$(basename "$SPEC_FILE" .md)
+FEATURE_NAME=$(basename "$SPEC_FILE" .md | sed 's/\.spec\.ts$//' | sed 's/\.test\.ts$//')
 
 log "TDD 워크플로우 시작: $SPEC_FILE"
 log "모드: $MODE"
