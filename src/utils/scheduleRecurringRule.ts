@@ -50,7 +50,7 @@ export function generateRecurringDates(
   // Generate recurring dates based on type
   switch (repeatType) {
     case 'daily':
-      generateDailyDates(baseDate, count, result);
+      generateDailyDates(baseDate, count + 1, result);
       break;
     case 'weekly':
       generateWeeklyDates(baseDate, count, result);

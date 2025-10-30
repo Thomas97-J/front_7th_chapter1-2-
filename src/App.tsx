@@ -724,7 +724,10 @@ function App() {
                   icon: '🔄',
                 };
                 // 반복 시리즈 전체 이벤트를 서버에서 수정
-                await saveEvent(recurringEvent, { recurringEditAll: true });
+                await saveEvent(recurringEvent, {
+                  recurringEditAll: true,
+                  repeatId: editingEvent?.repeat?.id,
+                });
                 resetForm();
               }
             }}
